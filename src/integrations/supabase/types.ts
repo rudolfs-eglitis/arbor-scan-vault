@@ -499,10 +499,12 @@ export type Database = {
         Row: {
           content: string
           content_en: string | null
+          content_sha256: string | null
           created_at: string | null
           defect_ids: string[] | null
           embedding: string | null
           id: number
+          image_ids: number[] | null
           lang: string | null
           meta: Json | null
           pages: string | null
@@ -514,10 +516,12 @@ export type Database = {
         Insert: {
           content: string
           content_en?: string | null
+          content_sha256?: string | null
           created_at?: string | null
           defect_ids?: string[] | null
           embedding?: string | null
           id?: number
+          image_ids?: number[] | null
           lang?: string | null
           meta?: Json | null
           pages?: string | null
@@ -529,10 +533,12 @@ export type Database = {
         Update: {
           content?: string
           content_en?: string | null
+          content_sha256?: string | null
           created_at?: string | null
           defect_ids?: string[] | null
           embedding?: string | null
           id?: number
+          image_ids?: number[] | null
           lang?: string | null
           meta?: Json | null
           pages?: string | null
@@ -571,6 +577,44 @@ export type Database = {
             columns: ["chunk_id"]
             isOneToOne: false
             referencedRelation: "kb_chunks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kb_images: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          id: number
+          meta: Json | null
+          page: number | null
+          source_id: string
+          uri: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          id?: number
+          meta?: Json | null
+          page?: number | null
+          source_id: string
+          uri?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          id?: number
+          meta?: Json | null
+          page?: number | null
+          source_id?: string
+          uri?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kb_images_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "kb_sources"
             referencedColumns: ["id"]
           },
         ]
