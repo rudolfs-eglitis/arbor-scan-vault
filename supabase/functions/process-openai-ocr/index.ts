@@ -451,19 +451,30 @@ async function updateDatabase(supabase: any, request: OCRRequest, textResult: Te
     console.warn('Failed to update image metadata:', imageError);
   }
 
-  // Update queue_pages with phase 1 completion and figures
-  const { error: queueError } = await supabase
-    .from('queue_pages')
-    .update({
-      phase1_completed_at: new Date().toISOString(),
-      figures_extracted: textResult.figures || [],
-      extracted_text: textResult.text.substring(0, 1000) // Store preview
-    })
-    .eq('queue_id', request.sourceId)
-    .eq('page_number', request.page);
+  // Find the queue_id (UUID) from the source_id (text) to update queue_pages
+  const { data: queueData, error: queueFindError } = await supabase
+    .from('processing_queue')
+    .select('id')
+    .eq('source_id', request.sourceId)
+    .single();
 
-  if (queueError) {
-    console.warn('Failed to update queue page phase 1 status:', queueError);
+  if (queueFindError) {
+    console.warn('Failed to find processing queue:', queueFindError);
+  } else {
+    // Update queue_pages with phase 1 completion and figures using the correct UUID
+    const { error: queueError } = await supabase
+      .from('queue_pages')
+      .update({
+        phase1_completed_at: new Date().toISOString(),
+        figures_extracted: textResult.figures || [],
+        extracted_text: textResult.text.substring(0, 1000) // Store preview
+      })
+      .eq('queue_id', queueData.id)
+      .eq('page_number', request.page);
+
+    if (queueError) {
+      console.warn('Failed to update queue page phase 1 status:', queueError);
+    }
   }
 
   console.log('Database updated successfully for Phase 1');
