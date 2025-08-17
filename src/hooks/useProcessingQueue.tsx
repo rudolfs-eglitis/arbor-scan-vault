@@ -691,6 +691,127 @@ export const useProcessingQueue = () => {
     }
   };
 
+  const restartEntireBatch = async (queueId: string): Promise<boolean> => {
+    try {
+      console.log('Restarting entire batch:', queueId);
+      setLoading(true);
+
+      // Get queue info first
+      const { data: queueData, error: queueFetchError } = await supabase
+        .from('processing_queue')
+        .select('source_id')
+        .eq('id', queueId)
+        .single();
+
+      if (queueFetchError) {
+        console.error('Failed to fetch queue info:', queueFetchError);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch queue information',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      // Delete existing chunks for this source (clean slate)
+      const { error: chunksError } = await supabase
+        .from('kb_chunks')
+        .delete()
+        .eq('source_id', queueData.source_id);
+
+      if (chunksError) {
+        console.warn('Failed to delete existing chunks:', chunksError);
+        // Continue anyway - this is not critical
+      }
+
+      // Delete existing kb_images entries for this source
+      const { error: imagesError } = await supabase
+        .from('kb_images')
+        .delete()
+        .eq('source_id', queueData.source_id);
+
+      if (imagesError) {
+        console.warn('Failed to delete existing images:', imagesError);
+        // Continue anyway - this is not critical
+      }
+
+      // Reset ALL pages to pending
+      const { error: pagesError } = await supabase
+        .from('queue_pages')
+        .update({ 
+          status: 'pending',
+          error_message: null,
+          processed_at: null,
+          phase1_completed_at: null,
+          phase2_completed_at: null,
+          phase3_completed_at: null,
+          extracted_text: null,
+          figures_extracted: [] as any,
+          ocr_confidence: null
+        })
+        .eq('queue_id', queueId);
+
+      if (pagesError) {
+        console.error('Failed to reset pages:', pagesError);
+        toast({
+          title: 'Error',
+          description: 'Failed to reset queue pages',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      // Reset queue status and progress completely
+      const { error: queueError } = await supabase
+        .from('processing_queue')
+        .update({
+          status: 'pending',
+          processed_pages: 0,
+          progress_percentage: 0,
+          current_page: null,
+          current_stage: null,
+          current_file: null,
+          current_phase: 'phase1_extraction',
+          error_message: null,
+          started_at: null,
+          completed_at: null,
+          estimated_completion: null,
+          processing_speed: null
+        })
+        .eq('id', queueId);
+
+      if (queueError) {
+        console.error('Failed to reset queue:', queueError);
+        toast({
+          title: 'Error', 
+          description: 'Failed to reset queue status',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      // Start processing from scratch
+      await processQueueItem(queueId);
+      
+      toast({
+        title: 'Success',
+        description: 'Entire batch restarted successfully - all data cleared and processing started from scratch',
+      });
+      await fetchQueueItems();
+      return true;
+    } catch (error) {
+      console.error('Error in restartEntireBatch:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to restart entire batch',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const retryQueuePages = async (queueId: string, pageIds?: string[]) => {
     try {
       let query = supabase.from('queue_pages').update({ 
@@ -793,6 +914,7 @@ export const useProcessingQueue = () => {
     restartQueueProcessing,
     processOnlyMissingPages,
     forceRestartQueueProcessing,
+    restartEntireBatch,
     checkForPendingQueues,
     retryQueuePages,
     getQueueStats,

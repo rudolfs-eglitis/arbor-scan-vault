@@ -65,7 +65,8 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
     processOnlyMissingPages,
     forceRestartQueueProcessing,
     retryQueuePages,
-    processQueueItem
+    processQueueItem,
+    restartEntireBatch
   } = useProcessingQueue();
 
   const fetchPages = async () => {
@@ -330,6 +331,17 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
                   >
                     <RotateCcw className="h-3 w-3" />
                     Retry All Errors ({pageStats.error})
+                  </Button>
+                )}
+                {(queueItem?.status === 'error' || queueItem?.status === 'completed') && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => restartEntireBatch(queueItem.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <AlertCircle className="h-3 w-3" />
+                    Restart Entire Batch
                   </Button>
                 )}
               </div>

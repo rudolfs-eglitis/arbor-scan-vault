@@ -46,7 +46,7 @@ const QueueTab = () => {
   const [selectedQueueItem, setSelectedQueueItem] = useState<any>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
-  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats, forceRestartQueueProcessing, refreshQueue } = useProcessingQueue();
+  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats, forceRestartQueueProcessing, refreshQueue, restartEntireBatch } = useProcessingQueue();
 
   const openDetailsModal = (item: any) => {
     setSelectedQueueItem(item);
@@ -332,6 +332,18 @@ const QueueTab = () => {
                       </Button>
                     )}
                   </>
+                )}
+                {(item.status === 'error' || item.status === 'completed') && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => restartEntireBatch(item.id)}
+                    className="flex items-center gap-2 bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                    title="Restart entire batch from scratch - clears all data"
+                  >
+                    <Square className="h-4 w-4" />
+                    Restart Entire Batch
+                  </Button>
                 )}
                 <Button 
                   variant="outline" 
