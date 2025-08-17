@@ -378,6 +378,118 @@ export const useProcessingQueue = () => {
     }
   };
 
+  const restartQueueProcessing = async (queueId: string) => {
+    try {
+      // Check if queue has pending pages
+      const { data: pendingPages, error: pagesError } = await supabase
+        .from('queue_pages')
+        .select('id')
+        .eq('queue_id', queueId)
+        .eq('status', 'pending');
+
+      if (pagesError) throw pagesError;
+
+      if (pendingPages && pendingPages.length > 0) {
+        // Restart the queue processing
+        const { error } = await supabase
+          .from('processing_queue')
+          .update({ 
+            status: 'processing',
+            started_at: new Date().toISOString(),
+            completed_at: null,
+            error_message: null
+          })
+          .eq('id', queueId);
+
+        if (error) throw error;
+
+        // Start processing
+        processQueueItem(queueId);
+        
+        toast({
+          title: 'Queue Restarted',
+          description: `Processing ${pendingPages.length} pending pages`,
+        });
+
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error restarting queue:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to restart queue processing',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  const checkForPendingQueues = async () => {
+    try {
+      // Find completed queues that have pending pages
+      const { data: completedQueues, error: queuesError } = await supabase
+        .from('processing_queue')
+        .select('id')
+        .eq('status', 'completed');
+
+      if (queuesError) throw queuesError;
+
+      if (completedQueues && completedQueues.length > 0) {
+        for (const queue of completedQueues) {
+          const { data: pendingPages, error: pagesError } = await supabase
+            .from('queue_pages')
+            .select('id')
+            .eq('queue_id', queue.id)
+            .eq('status', 'pending');
+
+          if (!pagesError && pendingPages && pendingPages.length > 0) {
+            // Auto-restart this queue
+            await restartQueueProcessing(queue.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for pending queues:', error);
+    }
+  };
+
+  const retryQueuePages = async (queueId: string, pageIds?: string[]) => {
+    try {
+      let query = supabase.from('queue_pages').update({ 
+        status: 'pending',
+        error_message: null,
+        processed_at: null
+      });
+
+      if (pageIds && pageIds.length > 0) {
+        query = query.in('id', pageIds);
+      } else {
+        query = query.eq('queue_id', queueId).eq('status', 'error');
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+
+      // Auto-restart the queue processing
+      await restartQueueProcessing(queueId);
+      await fetchQueueItems();
+
+      const pageCount = pageIds ? pageIds.length : 'all failed';
+      toast({
+        title: 'Pages Retried',
+        description: `${pageCount} pages queued for retry and processing restarted`,
+      });
+    } catch (error) {
+      console.error('Error retrying pages:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to retry pages',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getQueueStats = () => {
     const pending = queueItems.filter(item => item.status === 'pending').length;
     const processing = queueItems.filter(item => item.status === 'processing').length;
@@ -443,5 +555,8 @@ export const useProcessingQueue = () => {
     getQueueStats,
     refreshQueue: fetchQueueItems,
     refreshSuggestions: fetchSuggestions,
+    restartQueueProcessing,
+    checkForPendingQueues,
+    retryQueuePages,
   };
 };

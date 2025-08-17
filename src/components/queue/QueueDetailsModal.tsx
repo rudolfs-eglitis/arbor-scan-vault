@@ -98,17 +98,86 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
 
       if (error) throw error;
       
+      // Check if we need to restart queue processing
+      await checkAndRestartQueue();
+      
       await fetchPages();
       onRefresh?.();
       toast({
         title: 'Success',
-        description: 'Page queued for retry',
+        description: 'Page queued for retry and processing restarted',
       });
     } catch (error) {
       console.error('Error retrying page:', error);
       toast({
         title: 'Error',
         description: 'Failed to retry page',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const checkAndRestartQueue = async () => {
+    if (!queueItem || queueItem.status !== 'completed') return;
+
+    try {
+      // Check if queue has pending pages
+      const { data: pendingPages, error: pagesError } = await supabase
+        .from('queue_pages')
+        .select('id')
+        .eq('queue_id', queueItem.id)
+        .eq('status', 'pending');
+
+      if (pagesError) throw pagesError;
+
+      if (pendingPages && pendingPages.length > 0) {
+        // Restart the queue processing
+        const { error } = await supabase
+          .from('processing_queue')
+          .update({ 
+            status: 'processing',
+            started_at: new Date().toISOString(),
+            completed_at: null,
+            error_message: null
+          })
+          .eq('id', queueItem.id);
+
+        if (error) throw error;
+      }
+    } catch (error) {
+      console.error('Error checking and restarting queue:', error);
+    }
+  };
+
+  const retryAllErrorPages = async () => {
+    try {
+      const errorPages = pages.filter(p => p.status === 'error');
+      if (errorPages.length === 0) return;
+
+      const { error } = await supabase
+        .from('queue_pages')
+        .update({ 
+          status: 'pending',
+          error_message: null,
+          processed_at: null
+        })
+        .in('id', errorPages.map(p => p.id));
+
+      if (error) throw error;
+      
+      await checkAndRestartQueue();
+      await fetchPages();
+      onRefresh?.();
+      
+      toast({
+        title: 'Success',
+        description: `${errorPages.length} pages queued for retry and processing restarted`,
+      });
+    } catch (error) {
+      console.error('Error retrying all error pages:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to retry pages',
         variant: 'destructive',
       });
     }
@@ -232,8 +301,19 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
 
           {/* Pages List */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Page Processing Status</CardTitle>
+              {pageStats.error > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retryAllErrorPages}
+                  className="flex items-center gap-2"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Retry All Errors
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-64">
