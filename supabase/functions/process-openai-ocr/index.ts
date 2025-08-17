@@ -312,11 +312,11 @@ async function extractAndSaveFigures(content: string, supabase: any, sourceId: s
     // Parse figure details
     const figureData = parseFigureDetails(figureContent);
     
-    // Store figure metadata in kb_images
+    // Store figure metadata in kb_images (upsert to handle duplicates)
     try {
       const { data, error } = await supabase
         .from('kb_images')
-        .insert({
+        .upsert({
           source_id: sourceId,
           page: page,
           caption: figureData.caption || figureData.description,
@@ -327,6 +327,8 @@ async function extractAndSaveFigures(content: string, supabase: any, sourceId: s
             location: figureData.location,
             extraction_method: 'openai_vision_phase1'
           }
+        }, {
+          onConflict: 'source_id,page'
         })
         .select()
         .single();
