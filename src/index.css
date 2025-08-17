@@ -12,6 +12,9 @@ All colors MUST be HSL.
     --background: 0 0% 100%;
     --foreground: 120 25% 15%;
 
+    --success: 142 76% 36%;
+    --success-foreground: 355 100% 97%;
+
     --card: 0 0% 100%;
     --card-foreground: 120 25% 15%;
 
@@ -76,6 +79,9 @@ All colors MUST be HSL.
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
+
+    --success: 142 70% 45%;
+    --success-foreground: 355 100% 97%;
 
     --card: 222.2 84% 4.9%;
     --card-foreground: 210 40% 98%;

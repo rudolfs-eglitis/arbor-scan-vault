@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Upload, FileText, Clock, CheckCircle, TreePine, BookOpen, FileCheck, List } from 'lucide-react';
+import { ProtectedRoute } from './ProtectedRoute';
+import { UserProfile } from './UserProfile';
 import SourcesTab from './tabs/SourcesTab';
 import UploadTab from './tabs/UploadTab';
 import QueueTab from './tabs/QueueTab';
@@ -14,23 +16,25 @@ const ArborQuantApp = () => {
   const [activeTab, setActiveTab] = useState('sources');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <TreePine className="h-8 w-8 text-primary" />
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                  ArborQuant
-                </h1>
-                <p className="text-sm text-muted-foreground">Knowledge Base Management</p>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gradient-to-br from-background via-accent/20 to-background">
+        {/* Header */}
+        <header className="border-b bg-card/50 backdrop-blur-sm">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TreePine className="h-8 w-8 text-primary" />
+                <div>
+                  <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                    ArborQuant
+                  </h1>
+                  <p className="text-sm text-muted-foreground">Knowledge Base Management</p>
+                </div>
               </div>
+              <UserProfile />
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
@@ -72,6 +76,7 @@ const ArborQuantApp = () => {
         </Tabs>
       </main>
     </div>
+    </ProtectedRoute>
   );
 };
 
