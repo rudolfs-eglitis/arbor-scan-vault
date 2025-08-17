@@ -4,18 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { createWorker } from 'tesseract.js';
 
 interface OCRTestResult {
   success: boolean;
-  imageId?: number;
-  chunkId?: number;
-  extractedText?: string;
+  text?: string;
   confidence?: number;
-  detectedLanguage?: string;
+  language?: string;
   contentHash?: string;
+  provider?: string;
   error?: string;
-  details?: string;
 }
 
 export const OCRTest: React.FC = () => {
@@ -28,88 +25,59 @@ export const OCRTest: React.FC = () => {
     setResult(null);
 
     try {
-      console.log('Testing Tesseract.js OCR with image...');
-      
-      const imageUrl = "book.sv.stadstradslexikon.2015/batch-1/page-1-20250817_174025.jpg";
-      const sourceId = "book.sv.stadstradslexikon.2015";
-      const page = 1;
-
-      // Get the public URL for the image
-      console.log('Resolving image URL from Supabase storage...');
-      const { data: urlData } = supabase.storage
+      // Get public URL for a test image
+      const { data: urlData } = await supabase.storage
         .from('kb-images')
-        .getPublicUrl(imageUrl);
-      
-      const fullImageUrl = urlData.publicUrl;
-      console.log('Full image URL:', fullImageUrl);
+        .getPublicUrl('book.en.schmidt.2006/page-001.jpg');
 
-      // Initialize Tesseract worker
-      console.log('Initializing Tesseract.js worker...');
-      const worker = await createWorker('eng+swe', 1, {
-        logger: m => console.log('Tesseract:', m)
+      if (!urlData?.publicUrl) {
+        throw new Error('Failed to get image URL');
+      }
+
+      console.log('Testing OpenAI Vision OCR with image:', urlData.publicUrl);
+
+      // Call the OpenAI OCR edge function
+      const { data, error } = await supabase.functions.invoke('process-openai-ocr', {
+        body: {
+          imageUrl: urlData.publicUrl,
+          sourceId: 'test-source',
+          page: 1
+        }
       });
 
-      // Perform OCR
-      console.log('Performing OCR with Tesseract.js...');
-      const ocrResult = await worker.recognize(fullImageUrl);
-      
-      console.log('Tesseract OCR result:', ocrResult);
-      
-      // Clean up worker
-      await worker.terminate();
+      if (error) {
+        throw new Error(`Edge function error: ${error.message}`);
+      }
 
-      const extractedText = ocrResult.data.text;
-      const confidence = ocrResult.data.confidence / 100; // Convert to 0-1 scale
+      if (!data?.success) {
+        throw new Error(data?.error?.message || 'OpenAI OCR processing failed');
+      }
 
-      // Simple language detection
-      const detectLanguage = (text: string): string => {
-        const swedishWords = ['och', 'att', 'för', 'är', 'med', 'på', 'av', 'som', 'till', 'när'];
-        const englishWords = ['the', 'and', 'to', 'of', 'in', 'for', 'is', 'on', 'with', 'as'];
-        
-        const words = text.toLowerCase().split(/\s+/);
-        const swedishCount = words.filter(word => swedishWords.includes(word)).length;
-        const englishCount = words.filter(word => englishWords.includes(word)).length;
-        
-        return swedishCount > englishCount ? 'sv' : 'en';
+      const testResult: OCRTestResult = {
+        success: true,
+        text: data.result.text,
+        confidence: Math.round(data.result.confidence),
+        language: data.result.language,
+        contentHash: data.result.contentHash,
+        provider: data.result.provider
       };
 
-      const detectedLanguage = detectLanguage(extractedText);
-
-      // Generate content hash
-      const encoder = new TextEncoder();
-      const data = encoder.encode(extractedText);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-      console.log('OCR processing completed successfully');
-
-      setResult({
-        success: true,
-        extractedText: extractedText,
-        confidence: confidence,
-        detectedLanguage: detectedLanguage,
-        contentHash: contentHash
-      });
-      
+      setResult(testResult);
       toast({
         title: 'OCR Test Successful',
-        description: `Extracted ${extractedText.length} characters with ${Math.round(confidence * 100)}% confidence using Tesseract.js`,
+        description: `Extracted ${data.result.text.length} characters with ${data.result.confidence}% confidence using OpenAI Vision`,
       });
 
     } catch (error) {
-      console.error('Error testing Tesseract.js OCR:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
-      setResult({
+      console.error('OCR test error:', error);
+      const errorResult: OCRTestResult = {
         success: false,
-        error: errorMessage,
-        details: JSON.stringify(error, null, 2)
-      });
-      
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+      setResult(errorResult);
       toast({
         title: 'OCR Test Failed',
-        description: errorMessage,
+        description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
     } finally {
@@ -121,27 +89,27 @@ export const OCRTest: React.FC = () => {
     <div className="p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Tesseract.js OCR Test</CardTitle>
+          <CardTitle>OpenAI Vision OCR Test</CardTitle>
           <CardDescription>
-            Test the Tesseract.js OCR engine with a single image. This runs entirely in the browser without requiring API keys.
+            Test the OpenAI GPT-4 Vision OCR service with superior text extraction and content understanding.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground mb-4">
-              This will test OCR processing on:<br />
+              This will test OpenAI Vision OCR processing on:<br />
               <code className="text-xs bg-muted px-2 py-1 rounded">
-                book.sv.stadstradslexikon.2015/batch-1/page-1-20250817_174025.jpg
+                book.en.schmidt.2006/page-001.jpg
               </code>
             </p>
             
-            <Button 
-              onClick={testOCRFunction} 
-              disabled={testing}
-              className="w-full"
-            >
-              {testing ? 'Testing Tesseract.js OCR...' : 'Test Tesseract.js OCR'}
-            </Button>
+        <Button 
+          onClick={testOCRFunction} 
+          disabled={testing}
+          className="w-full"
+        >
+          {testing ? 'Testing OpenAI Vision OCR...' : 'Test OpenAI Vision OCR'}
+        </Button>
           </div>
 
           {result && (
@@ -158,25 +126,22 @@ export const OCRTest: React.FC = () => {
                 {result.success ? (
                   <div className="space-y-3">
                     <div>
-                      <strong>Image ID:</strong> {result.imageId}
+                      <strong>Confidence:</strong> {result.confidence}%
                     </div>
                     <div>
-                      <strong>Chunk ID:</strong> {result.chunkId}
+                      <strong>Language:</strong> {result.language?.toUpperCase()}
                     </div>
                     <div>
-                      <strong>Confidence:</strong> {Math.round((result.confidence || 0) * 100)}%
-                    </div>
-                    <div>
-                      <strong>Detected Language:</strong> {result.detectedLanguage?.toUpperCase()}
+                      <strong>Provider:</strong> {result.provider}
                     </div>
                     <div>
                       <strong>Content Hash:</strong> 
                       <code className="text-xs bg-muted px-1 ml-2">{result.contentHash?.substring(0, 16)}...</code>
                     </div>
                     <div>
-                      <strong>Extracted Text ({result.extractedText?.length || 0} chars):</strong>
+                      <strong>Extracted Text ({result.text?.length || 0} chars):</strong>
                       <div className="mt-2 p-3 bg-muted rounded-md text-sm max-h-40 overflow-y-auto">
-                        {result.extractedText || 'No text extracted'}
+                        {result.text || 'No text extracted'}
                       </div>
                     </div>
                   </div>
@@ -185,14 +150,6 @@ export const OCRTest: React.FC = () => {
                     <div>
                       <strong>Error:</strong> {result.error}
                     </div>
-                    {result.details && (
-                      <div>
-                        <strong>Details:</strong>
-                        <pre className="mt-2 p-3 bg-muted rounded-md text-xs overflow-x-auto">
-                          {result.details}
-                        </pre>
-                      </div>
-                    )}
                   </div>
                 )}
               </CardContent>

@@ -70,17 +70,28 @@ export const ImageUploadZone = ({ sourceId, onProgress }: ImageUploadZoneProps) 
   };
 
   const processOCR = async (imageUrl: string, page: number): Promise<any> => {
-    const { data, error } = await supabase.functions.invoke('process-ocr', {
+    console.log('Processing OCR with OpenAI Vision for:', { imageUrl, sourceId, page });
+    
+    const { data, error } = await supabase.functions.invoke('process-openai-ocr', {
       body: {
         imageUrl,
         sourceId,
-        page,
-        caption: `Page ${page}`,
-      },
+        page
+      }
     });
 
-    if (error) throw error;
-    return data;
+    if (error) {
+      console.error('OpenAI OCR processing error:', error);
+      throw new Error(`OpenAI OCR processing failed: ${error.message}`);
+    }
+
+    if (!data?.success) {
+      console.error('OpenAI OCR processing failed:', data);
+      throw new Error(data?.error?.message || 'OpenAI OCR processing failed');
+    }
+
+    console.log('OpenAI OCR processing successful:', data);
+    return data.result;
   };
 
   const processImages = async () => {
@@ -114,8 +125,8 @@ export const ImageUploadZone = ({ sourceId, onProgress }: ImageUploadZoneProps) 
             ...img,
             status: 'completed',
             ocrResult: {
-              text: ocrResult.extractedText,
-              confidence: ocrResult.confidence,
+              text: ocrResult.text,
+              confidence: ocrResult.confidence / 100, // Convert percentage to decimal
               chunkId: ocrResult.chunkId,
             }
           } : img
