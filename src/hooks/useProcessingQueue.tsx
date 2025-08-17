@@ -118,14 +118,29 @@ export const useProcessingQueue = () => {
 
   const processQueueItem = async (queueId: string) => {
     try {
-      // Get queue item details
+      console.log(`[Queue ${queueId}] Starting queue processing...`);
+      
+      // Get the queue item first
       const { data: queueItem, error: queueError } = await supabase
         .from('processing_queue')
-        .select('*, kb_sources(*)')
+        .select('*')
         .eq('id', queueId)
         .single();
 
       if (queueError) throw queueError;
+      
+      // Ensure queue is in processing status
+      if (queueItem.status !== 'processing') {
+        console.log(`[Queue ${queueId}] Queue status is ${queueItem.status}, updating to processing...`);
+        await supabase
+          .from('processing_queue')
+          .update({ 
+            status: 'processing',
+            started_at: new Date().toISOString(),
+            current_stage: 'loading'
+          })
+          .eq('id', queueId);
+      }
 
       // Get all pending pages for this queue
       const { data: pages, error: pagesError } = await supabase
@@ -420,7 +435,7 @@ export const useProcessingQueue = () => {
       if (pendingPages && pendingPages.length > 0) {
         console.log(`[Queue ${queueId}] Found ${pendingPages.length} pending pages, restarting...`);
         
-        // First update queue status to processing
+        // First update queue status to processing and reset progress
         const { error: updateError } = await supabase
           .from('processing_queue')
           .update({ 
@@ -429,7 +444,9 @@ export const useProcessingQueue = () => {
             completed_at: null,
             error_message: null,
             current_page: null,
-            current_file: null
+            current_file: null,
+            current_stage: 'loading',
+            processing_speed: null
           })
           .eq('id', queueId);
 
@@ -440,10 +457,10 @@ export const useProcessingQueue = () => {
         
         console.log(`[Queue ${queueId}] Status updated to processing, starting OCR processing...`);
         
-        // Start processing asynchronously
+        // Start processing with a slight delay to ensure UI updates
         setTimeout(() => {
           processQueueItem(queueId);
-        }, 100);
+        }, 500);
         
         toast({
           title: 'Queue Restarted',

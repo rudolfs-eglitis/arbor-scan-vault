@@ -100,19 +100,42 @@ async function resolveImageUrl(imageUrl: string, supabase: any): Promise<string>
   return data.publicUrl;
 }
 
-// Verify image URL is accessible
+// Verify image URL is accessible with retry logic
 async function verifyImageUrl(imageUrl: string): Promise<void> {
-  try {
-    console.log('Verifying image accessibility:', imageUrl);
-    const response = await fetch(imageUrl, { method: 'HEAD' });
-    if (!response.ok) {
-      throw new OCRError(`Image not accessible: ${response.status} - ${response.statusText}`, 404);
+  const maxRetries = 3;
+  const retryDelay = 2000; // 2 seconds
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Verifying image accessibility (attempt ${attempt}/${maxRetries}):`, imageUrl);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(imageUrl, { 
+        method: 'HEAD',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new OCRError(`Image not accessible: ${response.status} - ${response.statusText}`, 404);
+      }
+      
+      console.log('Image verification successful');
+      return;
+    } catch (error) {
+      console.error(`Image verification failed (attempt ${attempt}/${maxRetries}):`, error);
+      
+      if (attempt === maxRetries) {
+        if (error instanceof OCRError) throw error;
+        throw new OCRError(`Failed to verify image after ${maxRetries} attempts: ${error.message}`, 404);
+      }
+      
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
     }
-    console.log('Image verification successful');
-  } catch (error) {
-    console.error('Image verification failed:', error);
-    if (error instanceof OCRError) throw error;
-    throw new OCRError(`Failed to verify image: ${error.message}`, 404);
   }
 }
 
@@ -132,56 +155,73 @@ async function processImageWithOpenAI(
   // First verify the image is accessible
   await verifyImageUrl(imageUrl);
 
-  // Update stage: OCR processing
-  await updateProcessingStage(supabase, sourceId, page, 'ocr');
+  const systemPrompt = `You are an expert OCR system. Extract ALL text from the image with high accuracy. 
+  
+  Rules:
+  1. Extract ALL visible text exactly as it appears
+  2. Preserve original formatting, line breaks, and spacing
+  3. Include headers, body text, captions, footnotes - everything
+  4. For tables, preserve structure with appropriate spacing/tabs
+  5. If text is unclear, make your best attempt but note uncertainty
+  6. Return ONLY the extracted text, no commentary or metadata
+  7. If no text is found, return "NO_TEXT_FOUND"`;
 
+  // Prepare request body with better prompt
+  const requestBody = {
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: systemPrompt,
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Please extract all visible text from this image. Pay attention to both main content and any smaller text, headers, footnotes, or captions.',
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: imageUrl,
+              detail: 'high'
+            },
+          },
+        ],
+      },
+    ],
+    max_tokens: 4000,
+    temperature: 0.1,
+  };
+
+  console.log('Sending request to OpenAI Vision API...');
+  
+  // Add timeout and retry logic for OpenAI API calls
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openaiApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert OCR system. Extract ALL text from the image with high accuracy. 
-          
-          Rules:
-          1. Extract ALL visible text exactly as it appears
-          2. Preserve original formatting, line breaks, and spacing
-          3. Include headers, body text, captions, footnotes - everything
-          4. For tables, preserve structure with appropriate spacing/tabs
-          5. If text is unclear, make your best attempt but note uncertainty
-          6. Return ONLY the extracted text, no commentary or metadata
-          7. If no text is found, return "NO_TEXT_FOUND"`
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Please extract all text from this image.'
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: imageUrl,
-                detail: 'high'
-              }
-            }
-          ]
-        }
-      ],
-      max_tokens: 4000,
-      temperature: 0.1
-    }),
+    body: JSON.stringify(requestBody),
+    signal: controller.signal,
   });
+  
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error('OpenAI API error:', response.status, errorText);
+    
+    // Handle specific timeout errors
+    if (errorText.includes('Timeout while downloading') || errorText.includes('invalid_image_url')) {
+      throw new OCRError(`Image access timeout: The image may be too large or temporarily unavailable. ${errorText}`, 408);
+    }
+    
     throw new OCRError(`OpenAI API error: ${response.status} - ${errorText}`, response.status);
   }
 
