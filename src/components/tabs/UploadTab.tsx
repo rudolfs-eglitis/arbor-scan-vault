@@ -119,6 +119,8 @@ const UploadTab = () => {
   const handleAddToQueue = async () => {
     if (!selectedSource || selectedFiles.length === 0) return;
     
+    console.log('Starting upload process with:', { selectedSource, fileCount: selectedFiles.length });
+    
     // Check file size limits (50MB per file)
     const maxFileSize = 50 * 1024 * 1024; // 50MB
     const oversizedFiles = selectedFiles.filter(file => file.size > maxFileSize);
@@ -149,60 +151,91 @@ const UploadTab = () => {
     try {
       const batchSizeNum = parseInt(batchSize);
       const totalBatches = Math.ceil(selectedFiles.length / batchSizeNum);
-      let fileIndex = 0;
+      console.log('Processing batches:', { totalBatches, batchSize: batchSizeNum });
       
       for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
         const startIndex = batchIndex * batchSizeNum;
         const endIndex = Math.min(startIndex + batchSizeNum, selectedFiles.length);
         const batchFiles = selectedFiles.slice(startIndex, endIndex);
         
-        // Upload files to storage with progress tracking
-        const uploadPromises = batchFiles.map(async (file, batchFileIndex) => {
+        console.log(`Processing batch ${batchIndex + 1}/${totalBatches} with ${batchFiles.length} files`);
+        
+        // Process files one by one to avoid overwhelming the database
+        const fileResults = [];
+        for (let batchFileIndex = 0; batchFileIndex < batchFiles.length; batchFileIndex++) {
+          const file = batchFiles[batchFileIndex];
           const globalFileIndex = startIndex + batchFileIndex;
           const fileName = `${selectedSource}/batch-${batchIndex + 1}/page-${globalFileIndex + 1}-${file.name}`;
           const pageNumber = globalFileIndex + 1;
           
+          console.log(`Processing file ${globalFileIndex + 1}/${selectedFiles.length}: ${file.name}`);
+          
           try {
             // Upload to storage with upsert to handle duplicates
+            console.log('Uploading to storage:', fileName);
             const { error: storageError } = await supabase.storage
               .from('kb-images')
               .upload(fileName, file, { upsert: true });
             
-            if (storageError) throw new Error(`Storage upload failed for ${file.name}: ${storageError.message}`);
+            if (storageError) {
+              console.error('Storage error:', storageError);
+              throw new Error(`Storage upload failed for ${file.name}: ${storageError.message}`);
+            }
             
-            // Use upsert for kb_images record to handle duplicates
-            const { error: imageError } = await supabase
+            console.log('Storage upload successful, inserting database record...');
+            
+            // Insert/update database record
+            const imageRecord = {
+              source_id: selectedSource,
+              page: pageNumber,
+              uri: fileName,
+              caption: `Page ${pageNumber}`,
+              meta: {
+                filename: file.name,
+                fileSize: file.size,
+                batch: batchIndex + 1,
+                uploadedAt: new Date().toISOString(),
+                replaced: duplicateFiles.has(globalFileIndex)
+              }
+            };
+            
+            console.log('Inserting image record:', imageRecord);
+            
+            const { data: imageData, error: imageError } = await supabase
               .from('kb_images')
-              .upsert({
-                source_id: selectedSource,
-                page: pageNumber,
-                uri: fileName,
-                caption: `Page ${pageNumber}`,
-                meta: {
-                  filename: file.name,
-                  fileSize: file.size,
-                  batch: batchIndex + 1,
-                  uploadedAt: new Date().toISOString(),
-                  replaced: duplicateFiles.has(globalFileIndex)
-                }
-              }, {
+              .upsert(imageRecord, {
                 onConflict: 'source_id,page'
-              });
+              })
+              .select();
             
-            if (imageError) throw new Error(`Database insert failed for ${file.name}: ${imageError.message}`);
+            if (imageError) {
+              console.error('Database error:', imageError);
+              throw new Error(`Database insert failed for ${file.name}: ${imageError.message}`);
+            }
             
-            return fileName;
+            console.log('Database insert successful:', imageData);
+            fileResults.push(fileName);
+            
           } catch (error) {
+            console.error(`Error processing file ${file.name}:`, error);
             throw new Error(`Failed to process ${file.name}: ${error.message}`);
           }
-        });
+        }
         
-        await Promise.all(uploadPromises);
+        console.log(`Batch ${batchIndex + 1} completed, creating queue item...`);
         
         // Create queue item for this batch
         const batchName = `Batch ${batchIndex + 1} of ${totalBatches}`;
-        await createQueueItem(selectedSource, batchName, batchFiles.length);
+        try {
+          await createQueueItem(selectedSource, batchName, batchFiles.length);
+          console.log('Queue item created successfully');
+        } catch (queueError) {
+          console.error('Queue creation error:', queueError);
+          throw new Error(`Failed to create queue item: ${queueError.message}`);
+        }
       }
+      
+      console.log('Upload process completed successfully');
       
       toast({
         title: 'Success',
