@@ -170,13 +170,15 @@ export const useProcessingQueue = () => {
 
           // Update queue to show current processing file
           const fileName = image.uri ? image.uri.split('/').pop() || `Page ${page.page_number}` : `Page ${page.page_number}`;
-          await supabase
+          const { error: updateError } = await supabase
             .from('processing_queue')
             .update({ 
               current_page: page.page_number,
               current_file: fileName
-            })
+            } as any)
             .eq('id', queueId);
+
+          if (updateError) console.error('Error updating current file:', updateError);
 
           // Update page status to processing
           await supabase
@@ -242,15 +244,17 @@ export const useProcessingQueue = () => {
 
       if (!remainingPages || remainingPages.length === 0) {
         // All pages processed, mark queue as completed
-        await supabase
+        const { error: completeError } = await supabase
           .from('processing_queue')
           .update({ 
             status: 'completed',
             completed_at: new Date().toISOString(),
             current_page: null,
             current_file: null
-          })
+          } as any)
           .eq('id', queueId);
+
+        if (completeError) console.error('Error completing queue:', completeError);
 
         toast({
           title: 'Processing Complete',

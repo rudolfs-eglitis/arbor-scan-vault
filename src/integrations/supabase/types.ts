@@ -851,6 +851,8 @@ export type Database = {
           batch_name: string
           completed_at: string | null
           created_at: string
+          current_file: string | null
+          current_page: number | null
           error_message: string | null
           estimated_completion: string | null
           id: string
@@ -866,6 +868,8 @@ export type Database = {
           batch_name: string
           completed_at?: string | null
           created_at?: string
+          current_file?: string | null
+          current_page?: number | null
           error_message?: string | null
           estimated_completion?: string | null
           id?: string
@@ -881,6 +885,8 @@ export type Database = {
           batch_name?: string
           completed_at?: string | null
           created_at?: string
+          current_file?: string | null
+          current_page?: number | null
           error_message?: string | null
           estimated_completion?: string | null
           id?: string
