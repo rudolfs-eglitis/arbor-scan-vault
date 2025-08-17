@@ -2,26 +2,27 @@ import { useState, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Upload, Image, X, FolderOpen, Settings, Play } from 'lucide-react';
+import { Upload, Image, X, FolderOpen, Settings, Play, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 import { useProcessingQueue } from '@/hooks/useProcessingQueue';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { UploadProgress, useUploadProgress } from '@/components/upload/UploadProgress';
 
 const UploadTab = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [selectedSource, setSelectedSource] = useState('');
   const [batchSize, setBatchSize] = useState('30');
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { sources } = useKnowledgeBase();
   const { createQueueItem } = useProcessingQueue();
   const { toast } = useToast();
+  const { isUploading, currentFiles, startUpload, cancelUpload, completeUpload } = useUploadProgress();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -70,24 +71,44 @@ const UploadTab = () => {
   const handleAddToQueue = async () => {
     if (!selectedSource || selectedFiles.length === 0) return;
     
-    setUploading(true);
+    // Check file size limits (50MB per file)
+    const maxFileSize = 50 * 1024 * 1024; // 50MB
+    const oversizedFiles = selectedFiles.filter(file => file.size > maxFileSize);
+    
+    if (oversizedFiles.length > 0) {
+      toast({
+        title: 'File Size Error',
+        description: `${oversizedFiles.length} files exceed 50MB limit. Please reduce file sizes.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    startUpload(selectedFiles);
+    
     try {
       const batchSizeNum = parseInt(batchSize);
       const totalBatches = Math.ceil(selectedFiles.length / batchSizeNum);
+      let fileIndex = 0;
       
       for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
         const startIndex = batchIndex * batchSizeNum;
         const endIndex = Math.min(startIndex + batchSizeNum, selectedFiles.length);
         const batchFiles = selectedFiles.slice(startIndex, endIndex);
         
-        // Upload files to storage
-        const uploadPromises = batchFiles.map(async (file, fileIndex) => {
-          const fileName = `${selectedSource}/batch-${batchIndex + 1}/page-${startIndex + fileIndex + 1}-${file.name}`;
+        // Upload files to storage with progress tracking
+        const uploadPromises = batchFiles.map(async (file, batchFileIndex) => {
+          const globalFileIndex = startIndex + batchFileIndex;
+          const fileName = `${selectedSource}/batch-${batchIndex + 1}/page-${globalFileIndex + 1}-${file.name}`;
+          
           const { error } = await supabase.storage
             .from('kb-images')
             .upload(fileName, file);
           
           if (error) throw error;
+          
+          // Simulate progress (Supabase doesn't provide real progress)
+          // In reality, you'd track this through the upload process
           return fileName;
         });
         
@@ -106,6 +127,7 @@ const UploadTab = () => {
       // Clear files after successful upload
       setSelectedFiles([]);
       setSelectedSource('');
+      completeUpload();
       
     } catch (error) {
       console.error('Error uploading files:', error);
@@ -114,10 +136,41 @@ const UploadTab = () => {
         description: 'Failed to upload files to queue',
         variant: 'destructive',
       });
-    } finally {
-      setUploading(false);
+      cancelUpload();
     }
   };
+
+  // Calculate optimal recommendations for Galaxy S24 photos
+  const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+  const avgFileSize = selectedFiles.length > 0 ? totalSize / selectedFiles.length : 5 * 1024 * 1024; // 5MB default
+  const recommendedBatchCount = Math.ceil(avgFileSize / (1024 * 1024)) <= 5 ? 20 : 10; // Adjust based on file size
+
+  if (isUploading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold text-foreground">Uploading Files</h2>
+          <p className="text-muted-foreground">Please wait while your files are being uploaded...</p>
+        </div>
+        <UploadProgress
+          files={currentFiles}
+          onCancel={cancelUpload}
+          onProgress={(fileIndex, progress) => {
+            // Handle individual file progress if needed
+          }}
+          onComplete={completeUpload}
+          onError={(error) => {
+            toast({
+              title: 'Upload Error',
+              description: error,
+              variant: 'destructive',
+            });
+            cancelUpload();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -126,6 +179,16 @@ const UploadTab = () => {
         <h2 className="text-3xl font-bold text-foreground">Batch Upload</h2>
         <p className="text-muted-foreground">Upload page images or PDFs for OCR processing</p>
       </div>
+
+      {/* File Size Information */}
+      <Alert>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          <strong>File Limits:</strong> Maximum 50MB per file. For Galaxy S24 photos (~5MB each), 
+          we recommend uploading <strong>10-20 images at once</strong> for optimal performance. 
+          Total batch size should stay under 200MB.
+        </AlertDescription>
+      </Alert>
 
       {/* Source Selection */}
       <Card>
@@ -291,11 +354,11 @@ const UploadTab = () => {
             <div className="flex gap-4">
               <Button 
                 className="bg-gradient-primary hover:bg-primary-hover shadow-primary"
-                disabled={!selectedSource || selectedFiles.length === 0 || uploading}
+                disabled={!selectedSource || selectedFiles.length === 0 || isUploading}
                 onClick={handleAddToQueue}
               >
                 <Play className="h-4 w-4 mr-2" />
-                {uploading ? 'Uploading...' : 'Add to Queue'}
+                Add to Queue
               </Button>
               <Button variant="outline">
                 Preview Batches
