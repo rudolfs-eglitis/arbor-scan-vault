@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { createWorker } from 'tesseract.js';
 
 interface OCRTestResult {
   success: boolean;
@@ -27,48 +28,77 @@ export const OCRTest: React.FC = () => {
     setResult(null);
 
     try {
-      console.log('Testing OCR function with image...');
+      console.log('Testing Tesseract.js OCR with image...');
       
-      const testPayload = {
-        imageUrl: "book.sv.stadstradslexikon.2015/batch-1/page-1-20250817_174025.jpg",
-        sourceId: "book.sv.stadstradslexikon.2015", 
-        page: 1,
-        caption: "Page 1"
-      };
+      const imageUrl = "book.sv.stadstradslexikon.2015/batch-1/page-1-20250817_174025.jpg";
+      const sourceId = "book.sv.stadstradslexikon.2015";
+      const page = 1;
 
-      console.log('Calling process-ocr function with payload:', testPayload);
+      // Get the public URL for the image
+      console.log('Resolving image URL from Supabase storage...');
+      const { data: urlData } = supabase.storage
+        .from('kb-images')
+        .getPublicUrl(imageUrl);
+      
+      const fullImageUrl = urlData.publicUrl;
+      console.log('Full image URL:', fullImageUrl);
 
-      const { data, error } = await supabase.functions.invoke('process-ocr', {
-        body: testPayload
+      // Initialize Tesseract worker
+      console.log('Initializing Tesseract.js worker...');
+      const worker = await createWorker('eng+swe', 1, {
+        logger: m => console.log('Tesseract:', m)
       });
 
-      console.log('OCR function response:', { data, error });
+      // Perform OCR
+      console.log('Performing OCR with Tesseract.js...');
+      const ocrResult = await worker.recognize(fullImageUrl);
+      
+      console.log('Tesseract OCR result:', ocrResult);
+      
+      // Clean up worker
+      await worker.terminate();
 
-      if (error) {
-        console.error('OCR function error:', error);
-        setResult({
-          success: false,
-          error: error.message || 'Function call failed',
-          details: JSON.stringify(error, null, 2)
-        });
+      const extractedText = ocrResult.data.text;
+      const confidence = ocrResult.data.confidence / 100; // Convert to 0-1 scale
+
+      // Simple language detection
+      const detectLanguage = (text: string): string => {
+        const swedishWords = ['och', 'att', 'för', 'är', 'med', 'på', 'av', 'som', 'till', 'när'];
+        const englishWords = ['the', 'and', 'to', 'of', 'in', 'for', 'is', 'on', 'with', 'as'];
         
-        toast({
-          title: 'OCR Test Failed',
-          description: error.message || 'Function call failed',
-          variant: 'destructive',
-        });
-      } else {
-        console.log('OCR function succeeded:', data);
-        setResult(data as OCRTestResult);
+        const words = text.toLowerCase().split(/\s+/);
+        const swedishCount = words.filter(word => swedishWords.includes(word)).length;
+        const englishCount = words.filter(word => englishWords.includes(word)).length;
         
-        toast({
-          title: 'OCR Test Successful',
-          description: `Extracted ${data.extractedText?.length || 0} characters with ${Math.round((data.confidence || 0) * 100)}% confidence`,
-        });
-      }
+        return swedishCount > englishCount ? 'sv' : 'en';
+      };
+
+      const detectedLanguage = detectLanguage(extractedText);
+
+      // Generate content hash
+      const encoder = new TextEncoder();
+      const data = encoder.encode(extractedText);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+      console.log('OCR processing completed successfully');
+
+      setResult({
+        success: true,
+        extractedText: extractedText,
+        confidence: confidence,
+        detectedLanguage: detectedLanguage,
+        contentHash: contentHash
+      });
+      
+      toast({
+        title: 'OCR Test Successful',
+        description: `Extracted ${extractedText.length} characters with ${Math.round(confidence * 100)}% confidence using Tesseract.js`,
+      });
 
     } catch (error) {
-      console.error('Error testing OCR function:', error);
+      console.error('Error testing Tesseract.js OCR:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
       setResult({
@@ -91,9 +121,9 @@ export const OCRTest: React.FC = () => {
     <div className="p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>OCR Function Test</CardTitle>
+          <CardTitle>Tesseract.js OCR Test</CardTitle>
           <CardDescription>
-            Test the Google Cloud Vision OCR function with a single image to verify the service account authentication.
+            Test the Tesseract.js OCR engine with a single image. This runs entirely in the browser without requiring API keys.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -110,7 +140,7 @@ export const OCRTest: React.FC = () => {
               disabled={testing}
               className="w-full"
             >
-              {testing ? 'Testing OCR Function...' : 'Test OCR Function'}
+              {testing ? 'Testing Tesseract.js OCR...' : 'Test Tesseract.js OCR'}
             </Button>
           </div>
 
