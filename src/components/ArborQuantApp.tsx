@@ -33,7 +33,7 @@ const ArborQuantApp = () => {
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <TreePine className="h-8 w-8 text-primary" />
+                <img src="/lovable-uploads/2cfa8152-cdc0-4c6e-8e1a-587ed6f2fd37.png" alt="ArborQuant Logo" className="h-8 w-8" />
                 <div>
                   <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                     ArborQuant
