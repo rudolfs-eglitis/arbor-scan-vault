@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, Image, X, FolderOpen, Settings, Play } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 
 const UploadTab = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -13,6 +14,8 @@ const UploadTab = () => {
   const [selectedSource, setSelectedSource] = useState('');
   const [batchSize, setBatchSize] = useState('30');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const { sources } = useKnowledgeBase();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -83,9 +86,11 @@ const UploadTab = () => {
                   <SelectValue placeholder="Select a source" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="source1">Tree Biology and Arboriculture</SelectItem>
-                  <SelectItem value="source2">ISA Arborist Certification Study Guide</SelectItem>
-                  <SelectItem value="source3">Urban Tree Growth Response to Climate Change</SelectItem>
+                  {sources.map((source) => (
+                    <SelectItem key={source.id} value={source.id}>
+                      {source.title}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
