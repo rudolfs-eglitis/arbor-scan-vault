@@ -19,7 +19,7 @@ const ArborQuantApp = () => {
   const { hasRole } = useAuth();
 
   // Determine which tabs to show based on user roles
-  const canManageKnowledgeBase = hasRole('admin') || hasRole('qtra_arborist');
+  const canManageKnowledgeBase = hasRole('admin'); // Only admins can manage knowledge base for now
   const isAdmin = hasRole('admin');
 
   // Show different default tab based on permissions
@@ -56,7 +56,7 @@ const ArborQuantApp = () => {
               <div>
                 <p className="text-sm font-medium text-amber-800">Limited Access</p>
                 <p className="text-xs text-amber-700">
-                  You can review existing knowledge base content. Contact an admin for upload permissions.
+                  You can review existing knowledge base content. Only admins can upload and manage sources.
                 </p>
               </div>
             </CardContent>
