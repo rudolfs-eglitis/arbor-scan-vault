@@ -65,34 +65,34 @@ export const useReviewData = () => {
   // Fetch all sources that have chunks
   const fetchSources = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // Get all sources
+      const { data: allSources, error: sourcesError } = await supabase
         .from('kb_sources')
-        .select(`
-          id,
-          title,
-          authors,
-          year,
-          publisher,
-          created_at,
-          meta,
-          kb_chunks!inner(id)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (sourcesError) throw sourcesError;
       
-      // Only include sources that have at least one chunk
-      const sourcesWithChunks = data
-        ?.filter(source => source.kb_chunks && source.kb_chunks.length > 0)
-        .map(source => ({
-          id: source.id,
-          title: source.title,
-          authors: source.authors,
-          year: source.year,
-          publisher: source.publisher,
-          created_at: source.created_at,
-          meta: source.meta
-        })) || [];
+      // For each source, check if it has chunks
+      const sourcesWithChunks = [];
+      for (const source of allSources || []) {
+        const { count } = await supabase
+          .from('kb_chunks')
+          .select('*', { count: 'exact', head: true })
+          .eq('source_id', source.id);
+        
+        if (count && count > 0) {
+          sourcesWithChunks.push({
+            id: source.id,
+            title: source.title,
+            authors: source.authors,
+            year: source.year,
+            publisher: source.publisher,
+            created_at: source.created_at,
+            meta: source.meta
+          });
+        }
+      }
 
       setSources(sourcesWithChunks);
     } catch (error) {
