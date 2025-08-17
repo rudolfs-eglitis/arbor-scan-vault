@@ -236,30 +236,58 @@ export const useProcessingQueue = () => {
       }
 
       // Check if all pages are done
-      const { data: remainingPages } = await supabase
+      const { data: allPages } = await supabase
         .from('queue_pages')
-        .select('id')
-        .eq('queue_id', queueId)
-        .eq('status', 'pending');
+        .select('status')
+        .eq('queue_id', queueId);
 
-      if (!remainingPages || remainingPages.length === 0) {
-        // All pages processed, mark queue as completed
-        const { error: completeError } = await supabase
-          .from('processing_queue')
-          .update({ 
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            current_page: null,
-            current_file: null
-          } as any)
-          .eq('id', queueId);
+      if (allPages && allPages.length > 0) {
+        const pendingPages = allPages.filter(p => p.status === 'pending');
+        const completedPages = allPages.filter(p => p.status === 'completed');
+        const errorPages = allPages.filter(p => p.status === 'error');
 
-        if (completeError) console.error('Error completing queue:', completeError);
+        if (pendingPages.length === 0) {
+          // All pages processed, determine final status
+          let finalStatus: 'completed' | 'error' = 'completed';
+          let toastTitle = 'Processing Complete';
+          let toastDescription = `Successfully processed ${queueItem.batch_name}`;
+          let toastVariant: 'default' | 'destructive' = 'default';
 
-        toast({
-          title: 'Processing Complete',
-          description: `Successfully processed ${queueItem.batch_name}`,
-        });
+          if (errorPages.length > 0) {
+            if (completedPages.length === 0) {
+              // All pages failed
+              finalStatus = 'error';
+              toastTitle = 'Processing Failed';
+              toastDescription = `All ${errorPages.length} pages failed to process. Please check your API key and try again.`;
+              toastVariant = 'destructive';
+            } else {
+              // Some pages failed, some succeeded
+              finalStatus = 'completed';
+              toastTitle = 'Processing Completed with Errors';
+              toastDescription = `${completedPages.length} pages succeeded, ${errorPages.length} pages failed. Check the logs for details.`;
+              toastVariant = 'destructive';
+            }
+          }
+
+          const { error: completeError } = await supabase
+            .from('processing_queue')
+            .update({ 
+              status: finalStatus,
+              completed_at: new Date().toISOString(),
+              current_page: null,
+              current_file: null,
+              error_message: errorPages.length > 0 ? `${errorPages.length} pages failed to process` : null
+            } as any)
+            .eq('id', queueId);
+
+          if (completeError) console.error('Error completing queue:', completeError);
+
+          toast({
+            title: toastTitle,
+            description: toastDescription,
+            variant: toastVariant,
+          });
+        }
       }
 
     } catch (error) {
