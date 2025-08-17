@@ -242,40 +242,21 @@ async function updateDatabase(supabase: any, request: OCRRequest, textResult: Te
 
   console.log('Updating database with OCR results');
 
-  // Update kb_images table
-  const { error: updateError } = await supabase
-    .from('kb_images')
-    .update({
-      ocr_text: text,
-      ocr_confidence: confidence,
-      ocr_language: language,
-      content_hash: contentHash,
-      processing_status: text ? 'completed' : 'failed',
-      processed_at: new Date().toISOString()
-    })
-    .eq('source_id', sourceId)
-    .eq('page', page);
-
-  if (updateError) {
-    console.error('Error updating kb_images:', updateError);
-    throw new OCRError(`Database update failed: ${updateError.message}`);
-  }
-
-  // Insert into kb_chunks if we have text
+  // Insert or update kb_chunks table with the extracted text
   if (text && text.length > 10) {
     const { data: chunkData, error: insertError } = await supabase
       .from('kb_chunks')
       .insert({
         source_id: sourceId,
-        page: page,
+        page: page.toString(),
         content: text,
         content_hash: contentHash,
-        language: language,
-        chunk_index: 0,
-        metadata: {
+        lang: language,
+        meta: {
           ocr_confidence: confidence,
           ocr_provider: 'openai_vision',
-          processed_at: new Date().toISOString()
+          processed_at: new Date().toISOString(),
+          image_url: imageUrl
         }
       })
       .select('id')
@@ -292,6 +273,28 @@ async function updateDatabase(supabase: any, request: OCRRequest, textResult: Te
     if (text.length > 50) {
       await generateSuggestions(supabase, chunkData.id, textResult);
     }
+  } else {
+    console.log('No substantial text extracted, skipping chunk creation');
+  }
+
+  // Update kb_images table if there's a matching record (optional)
+  const { error: updateError } = await supabase
+    .from('kb_images')
+    .update({
+      meta: {
+        ocr_processed: true,
+        ocr_confidence: confidence,
+        ocr_language: language,
+        ocr_provider: 'openai_vision',
+        processed_at: new Date().toISOString(),
+        text_length: text ? text.length : 0
+      }
+    })
+    .eq('source_id', sourceId)
+    .eq('page', page);
+
+  if (updateError) {
+    console.log('Note: Could not update kb_images (this is optional):', updateError.message);
   }
 }
 
