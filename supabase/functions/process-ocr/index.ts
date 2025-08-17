@@ -9,7 +9,8 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const ocrApiKey = Deno.env.get('OCR_API_KEY')!;
+const ocrApiKey = Deno.env.get('OCR_API_KEY');
+const serviceAccountJson = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON');
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -33,8 +34,126 @@ serve(async (req) => {
       fullImageUrl = urlData.publicUrl;
     }
 
+    // Helper function to get OAuth token from service account
+    const getAccessToken = async () => {
+      if (!serviceAccountJson) {
+        throw new Error('Service account JSON not configured');
+      }
+      
+      try {
+        const serviceAccount = JSON.parse(serviceAccountJson);
+        
+        // Use the service account to get access token
+        const now = Math.floor(Date.now() / 1000);
+        const payload = {
+          iss: serviceAccount.client_email,
+          scope: 'https://www.googleapis.com/auth/cloud-platform',
+          aud: 'https://oauth2.googleapis.com/token',
+          exp: now + 3600,
+          iat: now
+        };
+        
+        // For simplicity, we'll use the googleapis node library approach
+        // Convert the service account key format for JWT
+        const header = {
+          alg: 'RS256',
+          typ: 'JWT',
+          kid: serviceAccount.private_key_id
+        };
+        
+        // Prepare the private key - remove the header/footer and newlines
+        let privateKeyContent = serviceAccount.private_key
+          .replace('-----BEGIN PRIVATE KEY-----', '')
+          .replace('-----END PRIVATE KEY-----', '')
+          .replace(/\s/g, '');
+        
+        // Decode base64 to get the raw bytes
+        const privateKeyBytes = Uint8Array.from(atob(privateKeyContent), c => c.charCodeAt(0));
+        
+        // Import the private key for signing
+        const cryptoKey = await crypto.subtle.importKey(
+          'pkcs8',
+          privateKeyBytes,
+          {
+            name: 'RSASSA-PKCS1-v1_5',
+            hash: 'SHA-256',
+          },
+          false,
+          ['sign']
+        );
+        
+        // Create the JWT
+        const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        const signatureInput = `${headerB64}.${payloadB64}`;
+        
+        const signature = await crypto.subtle.sign(
+          'RSASSA-PKCS1-v1_5',
+          cryptoKey,
+          new TextEncoder().encode(signatureInput)
+        );
+        
+        const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+          .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+        
+        const jwt = `${headerB64}.${payloadB64}.${signatureB64}`;
+        
+        // Exchange JWT for access token
+        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+        });
+        
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          console.error('Token request error:', errorText);
+          throw new Error(`Token request failed: ${tokenResponse.status} - ${errorText}`);
+        }
+        
+        const tokenData = await tokenResponse.json();
+        console.log('Successfully obtained access token');
+        return tokenData.access_token;
+      } catch (error) {
+        console.error('Error getting access token:', error);
+        throw error;
+      }
+    };
+
     // Process OCR using Google Cloud Vision API
-    const visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${ocrApiKey}`;
+    let visionApiUrl: string;
+    let headers: Record<string, string>;
+    
+    if (serviceAccountJson) {
+      console.log('Using service account authentication');
+      try {
+        const accessToken = await getAccessToken();
+        visionApiUrl = 'https://vision.googleapis.com/v1/images:annotate';
+        headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        };
+      } catch (error) {
+        console.error('Service account authentication failed, falling back to API key:', error);
+        if (!ocrApiKey) {
+          throw new Error('Neither service account nor API key authentication is available');
+        }
+        visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${ocrApiKey}`;
+        headers = {
+          'Content-Type': 'application/json',
+        };
+      }
+    } else if (ocrApiKey) {
+      console.log('Using API key authentication');
+      visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${ocrApiKey}`;
+      headers = {
+        'Content-Type': 'application/json',
+      };
+    } else {
+      throw new Error('No authentication method available for Google Cloud Vision API');
+    }
     
     const requestBody = {
       requests: [
@@ -56,9 +175,7 @@ serve(async (req) => {
 
     const ocrResponse = await fetch(visionApiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(requestBody),
     });
 
