@@ -60,7 +60,7 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
   const [pages, setPages] = useState<QueuePage[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { forceRestartQueueProcessing } = useProcessingQueue();
+  const { forceRestartQueueProcessing, restartQueueProcessing } = useProcessingQueue();
 
   const fetchPages = async () => {
     if (!queueItem) return;
@@ -100,14 +100,14 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
 
       if (error) throw error;
       
-      // Check if we need to restart queue processing
-      await checkAndRestartQueue();
+      // Restart queue processing using the correct function
+      const success = await restartQueueProcessing(queueItem.id);
       
       await fetchPages();
       onRefresh?.();
       toast({
         title: 'Success',
-        description: 'Page queued for retry and processing restarted',
+        description: success ? 'Page queued for retry and processing restarted' : 'Page queued for retry',
       });
     } catch (error) {
       console.error('Error retrying page:', error);
@@ -119,70 +119,6 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
     }
   };
 
-  const checkAndRestartQueue = async () => {
-    if (!queueItem) return;
-
-    try {
-      console.log(`[Modal] Checking and restarting queue ${queueItem.id}...`);
-      
-      // Check if queue has pending pages
-      const { data: pendingPages, error: pagesError } = await supabase
-        .from('queue_pages')
-        .select('id, page_number')
-        .eq('queue_id', queueItem.id)
-        .eq('status', 'pending');
-
-      if (pagesError) throw pagesError;
-
-      if (pendingPages && pendingPages.length > 0) {
-        console.log(`[Modal] Found ${pendingPages.length} pending pages, restarting queue...`);
-        
-        // Update the queue processing status
-        const { error } = await supabase
-          .from('processing_queue')
-          .update({ 
-            status: 'processing',
-            started_at: new Date().toISOString(),
-            completed_at: null,
-            error_message: null,
-            current_page: null,
-            current_file: null
-          })
-          .eq('id', queueItem.id);
-
-        if (error) throw error;
-
-        // Call the OCR function to actually restart processing
-        const { error: processError } = await supabase.functions.invoke('process-ocr', {
-          body: {
-            action: 'restart_queue',
-            queueId: queueItem.id
-          }
-        });
-
-        if (processError) {
-          console.error('[Modal] Error calling process-ocr for restart:', processError);
-          // Still consider it a success if queue status was updated
-        } else {
-          console.log(`[Modal] Queue ${queueItem.id} restart initiated successfully`);
-        }
-
-        toast({
-          title: 'Queue Restarted',
-          description: `Processing ${pendingPages.length} pending pages`,
-        });
-      } else {
-        console.log(`[Modal] No pending pages found for queue ${queueItem.id}`);
-      }
-    } catch (error) {
-      console.error('[Modal] Error checking and restarting queue:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to restart queue processing',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const retryAllErrorPages = async () => {
     try {
@@ -200,13 +136,13 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
 
       if (error) throw error;
       
-      await checkAndRestartQueue();
+      const success = await restartQueueProcessing(queueItem.id);
       await fetchPages();
       onRefresh?.();
       
       toast({
         title: 'Success',
-        description: `${errorPages.length} pages queued for retry and processing restarted`,
+        description: `${errorPages.length} pages queued for retry${success ? ' and processing restarted' : ''}`,
       });
     } catch (error) {
       console.error('Error retrying all error pages:', error);
