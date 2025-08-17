@@ -151,6 +151,15 @@ export const useProcessingQueue = () => {
         return;
       }
 
+      // Get images from storage for this source
+      const { data: images, error: imagesError } = await supabase
+        .from('kb_images')
+        .select('*')
+        .eq('source_id', queueItem.source_id)
+        .order('page');
+
+      if (imagesError) throw imagesError;
+
       const startTime = Date.now();
       const totalPages = pages.length;
 
@@ -159,6 +168,21 @@ export const useProcessingQueue = () => {
         const page = pages[i];
         
         try {
+          // Find corresponding image
+          const image = images?.find(img => img.page === page.page_number);
+          if (!image || !image.uri) {
+            console.error(`[Queue ${queueId}] No image found for page ${page.page_number}`);
+            await supabase
+              .from('queue_pages')
+              .update({ 
+                status: 'error',
+                error_message: `No image found for page ${page.page_number}`,
+                processed_at: new Date().toISOString()
+              })
+              .eq('id', page.id);
+            continue;
+          }
+
           // Calculate progress and estimated time
           const progress = Math.round((i / totalPages) * 100);
           const elapsedMs = Date.now() - startTime;
@@ -168,11 +192,12 @@ export const useProcessingQueue = () => {
           const estimatedCompletion = new Date(Date.now() + estimatedRemainingMs);
 
           // Update queue with detailed progress
+          const fileName = image.uri.split('/').pop() || `Page ${page.page_number}`;
           const { error: progressError } = await supabase
             .from('processing_queue')
             .update({ 
               current_page: page.page_number,
-              current_file: `Page ${page.page_number}`,
+              current_file: fileName,
               progress_percentage: progress,
               estimated_completion: estimatedCompletion.toISOString()
             } as any)
@@ -186,11 +211,12 @@ export const useProcessingQueue = () => {
             .update({ status: 'processing' })
             .eq('id', page.id);
 
-          console.log(`[Queue ${queueId}] Processing page ${page.page_number} (${i + 1}/${totalPages})`);
+          console.log(`[Queue ${queueId}] Processing page ${page.page_number} (${i + 1}/${totalPages}) - ${fileName}`);
 
-          // Call OCR function - use the working process-openai-ocr function
+          // Call OCR function with the required imageUrl parameter
           const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('process-openai-ocr', {
             body: {
+              imageUrl: image.uri,
               sourceId: queueItem.source_id,
               page: page.page_number
             }
