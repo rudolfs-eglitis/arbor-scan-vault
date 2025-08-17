@@ -289,6 +289,17 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Page Processing Status</CardTitle>
               <div className="flex gap-2">
+                {pageStats.pending > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleForceRestart}
+                    className="flex items-center gap-2"
+                  >
+                    <PlayCircle className="h-3 w-3" />
+                    Process Pending ({pageStats.pending})
+                  </Button>
+                )}
                 {pageStats.pending > 0 && queueItem?.status === 'completed' && (
                   <Button
                     variant="outline"
@@ -308,7 +319,7 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
                     className="flex items-center gap-2"
                   >
                     <RotateCcw className="h-3 w-3" />
-                    Retry All Errors
+                    Retry All Errors ({pageStats.error})
                   </Button>
                 )}
               </div>
@@ -347,21 +358,31 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className={getStatusColor(page.status)} variant="secondary">
-                            {page.status}
-                          </Badge>
-                          {page.status === 'error' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => retryPage(page.id)}
-                            >
-                              <RotateCcw className="h-3 w-3 mr-1" />
-                              Retry
-                            </Button>
-                          )}
-                        </div>
+                         <div className="flex items-center gap-2">
+                           <Badge className={getStatusColor(page.status)} variant="secondary">
+                             {page.status}
+                           </Badge>
+                           {page.status === 'error' && (
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => retryPage(page.id)}
+                             >
+                               <RotateCcw className="h-3 w-3 mr-1" />
+                               Retry
+                             </Button>
+                           )}
+                           {page.status === 'pending' && (
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => retryPage(page.id)}
+                             >
+                               <PlayCircle className="h-3 w-3 mr-1" />
+                               Process
+                             </Button>
+                           )}
+                         </div>
                       </div>
                     ))}
                   </div>
