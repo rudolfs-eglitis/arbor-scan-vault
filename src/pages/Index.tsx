@@ -1,7 +1,12 @@
 import ArborQuantApp from '@/components/ArborQuantApp';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 const Index = () => {
-  return <ArborQuantApp />;
+  return (
+    <ProtectedRoute>
+      <ArborQuantApp />
+    </ProtectedRoute>
+  );
 };
 
 export default Index;

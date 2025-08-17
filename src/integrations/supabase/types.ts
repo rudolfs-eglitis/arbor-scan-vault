@@ -1682,6 +1682,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      create_root_admin_user: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_user_roles: {
         Args: { _user_id: string }
         Returns: {
