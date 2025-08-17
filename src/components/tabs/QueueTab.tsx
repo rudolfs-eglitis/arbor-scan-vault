@@ -6,6 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { Play, Pause, Square, RotateCcw, Trash2, Clock, CheckCircle, AlertCircle, PlayCircle, Brain } from 'lucide-react';
 import { useProcessingQueue } from '@/hooks/useProcessingQueue';
 import PageSuggestionsPanel from '@/components/knowledgeBase/PageSuggestionsPanel';
+import QueueDetailsModal from '@/components/queue/QueueDetailsModal';
+import QueueResultsModal from '@/components/queue/QueueResultsModal';
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -40,7 +42,20 @@ const getStatusColor = (status: string) => {
 const QueueTab = () => {
   const [processingAll, setProcessingAll] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats } = useProcessingQueue();
+  const [selectedQueueItem, setSelectedQueueItem] = useState<any>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats, refreshQueue } = useProcessingQueue();
+
+  const openDetailsModal = (item: any) => {
+    setSelectedQueueItem(item);
+    setShowDetailsModal(true);
+  };
+
+  const openResultsModal = (item: any) => {
+    setSelectedQueueItem(item);
+    setShowResultsModal(true);
+  };
 
   const stats = getQueueStats();
 
@@ -283,11 +298,19 @@ const QueueTab = () => {
                   </Button>
                 )}
                 {item.status === 'completed' && (
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => openResultsModal(item)}
+                  >
                     View Results
                   </Button>
                 )}
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => openDetailsModal(item)}
+                >
                   View Details
                 </Button>
               </div>
@@ -314,6 +337,20 @@ const QueueTab = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Modals */}
+      <QueueDetailsModal
+        open={showDetailsModal}
+        onOpenChange={setShowDetailsModal}
+        queueItem={selectedQueueItem}
+        onRefresh={refreshQueue}
+      />
+      
+      <QueueResultsModal
+        open={showResultsModal}
+        onOpenChange={setShowResultsModal}
+        queueItem={selectedQueueItem}
+      />
     </div>
   );
 };
