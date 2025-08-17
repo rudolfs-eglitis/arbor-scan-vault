@@ -263,10 +263,22 @@ const QueueResultsModal = ({ open, onOpenChange, queueItem }: QueueResultsModalP
                       </CardHeader>
                       <CardContent className="space-y-2">
                         {image.uri && (
-                          <div className="aspect-video bg-muted rounded-md flex items-center justify-center">
+                          <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                            <img
+                              src={getImageUrl(image.uri)}
+                              alt={image.caption || `Page ${image.page}`}
+                              className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => viewImage(image.uri!)}
+                              onError={(e) => {
+                                // Fallback to button if image fails to load
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
                             <Button
                               variant="outline"
                               onClick={() => viewImage(image.uri!)}
+                              className="hidden w-full h-full"
                             >
                               <ExternalLink className="h-4 w-4 mr-2" />
                               View Image
