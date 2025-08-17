@@ -63,7 +63,22 @@ const QueueTab = () => {
     if (item.status === 'completed') return 'Completed';
     if (item.status === 'error') return 'Failed';
     if (item.status === 'pending') return 'In queue';
-    if (item.status === 'processing') return '5 mins remaining'; // This would be calculated based on progress
+    if (item.status === 'processing') {
+      if (item.estimated_completion) {
+        const now = new Date();
+        const estimated = new Date(item.estimated_completion);
+        const diffMs = estimated.getTime() - now.getTime();
+        
+        if (diffMs <= 0) return 'Finishing up...';
+        
+        const diffMins = Math.ceil(diffMs / (1000 * 60));
+        if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} remaining`;
+        
+        const diffHours = Math.ceil(diffMins / 60);
+        return `${diffHours} hour${diffHours !== 1 ? 's' : ''} remaining`;
+      }
+      return 'Processing...';
+    }
     return 'Unknown';
   };
 

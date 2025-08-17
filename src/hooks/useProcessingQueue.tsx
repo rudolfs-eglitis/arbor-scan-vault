@@ -143,42 +143,42 @@ export const useProcessingQueue = () => {
           .from('processing_queue')
           .update({ 
             status: 'completed',
-            completed_at: new Date().toISOString()
+            completed_at: new Date().toISOString(),
+            current_page: null,
+            current_file: null
           })
           .eq('id', queueId);
         return;
       }
 
-      // Get images from storage for this source
-      const { data: images, error: imagesError } = await supabase
-        .from('kb_images')
-        .select('*')
-        .eq('source_id', queueItem.source_id)
-        .order('page');
-
-      if (imagesError) throw imagesError;
+      const startTime = Date.now();
+      const totalPages = pages.length;
 
       // Process each page
-      for (const page of pages) {
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        
         try {
-          // Find corresponding image
-          const image = images?.find(img => img.page === page.page_number);
-          if (!image) {
-            console.warn(`No image found for page ${page.page_number}`);
-            continue;
-          }
+          // Calculate progress and estimated time
+          const progress = Math.round((i / totalPages) * 100);
+          const elapsedMs = Date.now() - startTime;
+          const avgTimePerPage = elapsedMs / Math.max(1, i);
+          const remainingPages = totalPages - i;
+          const estimatedRemainingMs = avgTimePerPage * remainingPages;
+          const estimatedCompletion = new Date(Date.now() + estimatedRemainingMs);
 
-          // Update queue to show current processing file
-          const fileName = image.uri ? image.uri.split('/').pop() || `Page ${page.page_number}` : `Page ${page.page_number}`;
-          const { error: updateError } = await supabase
+          // Update queue with detailed progress
+          const { error: progressError } = await supabase
             .from('processing_queue')
             .update({ 
               current_page: page.page_number,
-              current_file: fileName
+              current_file: `Page ${page.page_number}`,
+              progress_percentage: progress,
+              estimated_completion: estimatedCompletion.toISOString()
             } as any)
             .eq('id', queueId);
 
-          if (updateError) console.error('Error updating current file:', updateError);
+          if (progressError) console.error('Error updating progress:', progressError);
 
           // Update page status to processing
           await supabase
@@ -186,23 +186,23 @@ export const useProcessingQueue = () => {
             .update({ status: 'processing' })
             .eq('id', page.id);
 
-          // Call OCR function with storage path
-          const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('process-ocr', {
+          console.log(`[Queue ${queueId}] Processing page ${page.page_number} (${i + 1}/${totalPages})`);
+
+          // Call OCR function - use the working process-openai-ocr function
+          const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('process-openai-ocr', {
             body: {
-              imageUrl: image.uri,
               sourceId: queueItem.source_id,
-              page: page.page_number,
-              caption: image.caption || `Page ${page.page_number}`
+              page: page.page_number
             }
           });
 
           if (ocrError) {
-            console.error('OCR Error:', ocrError);
+            console.error(`[Queue ${queueId}] OCR Error for page ${page.page_number}:`, ocrError);
             await supabase
               .from('queue_pages')
               .update({ 
                 status: 'error',
-                error_message: ocrError.message,
+                error_message: ocrError.message || 'OCR processing failed',
                 processed_at: new Date().toISOString()
               })
               .eq('id', page.id);
@@ -215,20 +215,20 @@ export const useProcessingQueue = () => {
             .update({ 
               status: 'completed',
               processed_at: new Date().toISOString(),
-              extracted_text: ocrResult.extractedText,
-              ocr_confidence: ocrResult.confidence
+              extracted_text: ocrResult?.extractedText || '',
+              ocr_confidence: ocrResult?.confidence || 0
             })
             .eq('id', page.id);
 
-          console.log(`Processed page ${page.page_number} successfully`);
+          console.log(`[Queue ${queueId}] Successfully processed page ${page.page_number}`);
 
         } catch (pageError) {
-          console.error(`Error processing page ${page.page_number}:`, pageError);
+          console.error(`[Queue ${queueId}] Error processing page ${page.page_number}:`, pageError);
           await supabase
             .from('queue_pages')
             .update({ 
               status: 'error',
-              error_message: pageError.message,
+              error_message: pageError.message || 'Unknown processing error',
               processed_at: new Date().toISOString()
             })
             .eq('id', page.id);
@@ -444,7 +444,22 @@ export const useProcessingQueue = () => {
     try {
       console.log(`[Queue ${queueId}] Force restarting processing...`);
       
-      // Force update queue status regardless of current state
+      // First, reset all failed and completed pages to pending for force restart
+      const { error: resetPagesError } = await supabase
+        .from('queue_pages')
+        .update({ 
+          status: 'pending',
+          error_message: null,
+          processed_at: null,
+          extracted_text: null,
+          ocr_confidence: null
+        })
+        .eq('queue_id', queueId)
+        .in('status', ['error', 'completed']);
+
+      if (resetPagesError) throw resetPagesError;
+
+      // Reset queue progress and status
       const { error: updateError } = await supabase
         .from('processing_queue')
         .update({ 
@@ -453,7 +468,10 @@ export const useProcessingQueue = () => {
           completed_at: null,
           error_message: null,
           current_page: null,
-          current_file: null
+          current_file: null,
+          processed_pages: 0,
+          progress_percentage: 0,
+          estimated_completion: null
         })
         .eq('id', queueId);
 
@@ -462,16 +480,16 @@ export const useProcessingQueue = () => {
       // Refresh queue items
       await fetchQueueItems();
       
-      console.log(`[Queue ${queueId}] Force restart: Status updated, starting processing...`);
+      console.log(`[Queue ${queueId}] Force restart: All pages reset, starting processing...`);
       
-      // Start processing
+      // Start processing immediately
       setTimeout(() => {
         processQueueItem(queueId);
       }, 100);
       
       toast({
         title: 'Queue Force Restarted',
-        description: 'Processing has been forcefully restarted',
+        description: 'All pages reset and processing restarted',
       });
 
       return true;
