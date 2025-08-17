@@ -4,9 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, CheckCircle, AlertCircle, PlayCircle, RotateCcw } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, PlayCircle, RotateCcw, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useProcessingQueue } from '@/hooks/useProcessingQueue';
 
 interface QueuePage {
   id: string;
@@ -59,6 +60,7 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
   const [pages, setPages] = useState<QueuePage[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { forceRestartQueueProcessing } = useProcessingQueue();
 
   const fetchPages = async () => {
     if (!queueItem) return;
@@ -118,34 +120,67 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
   };
 
   const checkAndRestartQueue = async () => {
-    if (!queueItem || queueItem.status !== 'completed') return;
+    if (!queueItem) return;
 
     try {
+      console.log(`[Modal] Checking and restarting queue ${queueItem.id}...`);
+      
       // Check if queue has pending pages
       const { data: pendingPages, error: pagesError } = await supabase
         .from('queue_pages')
-        .select('id')
+        .select('id, page_number')
         .eq('queue_id', queueItem.id)
         .eq('status', 'pending');
 
       if (pagesError) throw pagesError;
 
       if (pendingPages && pendingPages.length > 0) {
-        // Restart the queue processing
+        console.log(`[Modal] Found ${pendingPages.length} pending pages, restarting queue...`);
+        
+        // Update the queue processing status
         const { error } = await supabase
           .from('processing_queue')
           .update({ 
             status: 'processing',
             started_at: new Date().toISOString(),
             completed_at: null,
-            error_message: null
+            error_message: null,
+            current_page: null,
+            current_file: null
           })
           .eq('id', queueItem.id);
 
         if (error) throw error;
+
+        // Call the OCR function to actually restart processing
+        const { error: processError } = await supabase.functions.invoke('process-ocr', {
+          body: {
+            action: 'restart_queue',
+            queueId: queueItem.id
+          }
+        });
+
+        if (processError) {
+          console.error('[Modal] Error calling process-ocr for restart:', processError);
+          // Still consider it a success if queue status was updated
+        } else {
+          console.log(`[Modal] Queue ${queueItem.id} restart initiated successfully`);
+        }
+
+        toast({
+          title: 'Queue Restarted',
+          description: `Processing ${pendingPages.length} pending pages`,
+        });
+      } else {
+        console.log(`[Modal] No pending pages found for queue ${queueItem.id}`);
       }
     } catch (error) {
-      console.error('Error checking and restarting queue:', error);
+      console.error('[Modal] Error checking and restarting queue:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to restart queue processing',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -180,6 +215,20 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
         description: 'Failed to retry pages',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleForceRestart = async () => {
+    if (!queueItem) return;
+    
+    try {
+      const success = await forceRestartQueueProcessing(queueItem.id);
+      if (success) {
+        await fetchPages();
+        onRefresh?.();
+      }
+    } catch (error) {
+      console.error('Error force restarting:', error);
     }
   };
 
@@ -303,17 +352,30 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg">Page Processing Status</CardTitle>
-              {pageStats.error > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={retryAllErrorPages}
-                  className="flex items-center gap-2"
-                >
-                  <RotateCcw className="h-3 w-3" />
-                  Retry All Errors
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {pageStats.pending > 0 && queueItem?.status === 'completed' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleForceRestart}
+                    className="flex items-center gap-2"
+                  >
+                    <Zap className="h-3 w-3" />
+                    Force Restart
+                  </Button>
+                )}
+                {pageStats.error > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={retryAllErrorPages}
+                    className="flex items-center gap-2"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Retry All Errors
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-64">

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Play, Pause, Square, RotateCcw, Trash2, Clock, CheckCircle, AlertCircle, PlayCircle, Brain } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, Trash2, Clock, CheckCircle, AlertCircle, PlayCircle, Brain, Zap } from 'lucide-react';
 import { useProcessingQueue } from '@/hooks/useProcessingQueue';
 import PageSuggestionsPanel from '@/components/knowledgeBase/PageSuggestionsPanel';
 import QueueDetailsModal from '@/components/queue/QueueDetailsModal';
@@ -45,7 +45,7 @@ const QueueTab = () => {
   const [selectedQueueItem, setSelectedQueueItem] = useState<any>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
-  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats, refreshQueue } = useProcessingQueue();
+  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats, forceRestartQueueProcessing, refreshQueue } = useProcessingQueue();
 
   const openDetailsModal = (item: any) => {
     setSelectedQueueItem(item);
@@ -213,6 +213,16 @@ const QueueTab = () => {
                       <RotateCcw className="h-4 w-4" />
                     </Button>
                   )}
+                  {item.status === 'completed' && item.processed_pages < item.total_pages && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => forceRestartQueueProcessing(item.id)}
+                      title="Force restart processing for remaining pages"
+                    >
+                      <Zap className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button 
                     variant="ghost" 
                     size="sm"
@@ -298,13 +308,26 @@ const QueueTab = () => {
                   </Button>
                 )}
                 {item.status === 'completed' && (
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => openResultsModal(item)}
-                  >
-                    View Results
-                  </Button>
+                  <>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => openResultsModal(item)}
+                    >
+                      View Results
+                    </Button>
+                    {item.processed_pages < item.total_pages && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => forceRestartQueueProcessing(item.id)}
+                        className="flex items-center gap-2"
+                      >
+                        <Zap className="h-4 w-4" />
+                        Force Restart
+                      </Button>
+                    )}
+                  </>
                 )}
                 <Button 
                   variant="outline" 

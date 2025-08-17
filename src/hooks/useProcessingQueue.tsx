@@ -380,31 +380,44 @@ export const useProcessingQueue = () => {
 
   const restartQueueProcessing = async (queueId: string) => {
     try {
+      console.log(`[Queue ${queueId}] Attempting to restart processing...`);
+      
       // Check if queue has pending pages
       const { data: pendingPages, error: pagesError } = await supabase
         .from('queue_pages')
-        .select('id')
+        .select('id, page_number')
         .eq('queue_id', queueId)
         .eq('status', 'pending');
 
       if (pagesError) throw pagesError;
 
       if (pendingPages && pendingPages.length > 0) {
-        // Restart the queue processing
-        const { error } = await supabase
+        console.log(`[Queue ${queueId}] Found ${pendingPages.length} pending pages, restarting...`);
+        
+        // First update queue status to processing
+        const { error: updateError } = await supabase
           .from('processing_queue')
           .update({ 
             status: 'processing',
             started_at: new Date().toISOString(),
             completed_at: null,
-            error_message: null
+            error_message: null,
+            current_page: null,
+            current_file: null
           })
           .eq('id', queueId);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
 
-        // Start processing
-        processQueueItem(queueId);
+        // Refresh queue items to reflect status change
+        await fetchQueueItems();
+        
+        console.log(`[Queue ${queueId}] Status updated to processing, starting OCR processing...`);
+        
+        // Start processing asynchronously
+        setTimeout(() => {
+          processQueueItem(queueId);
+        }, 100);
         
         toast({
           title: 'Queue Restarted',
@@ -412,13 +425,61 @@ export const useProcessingQueue = () => {
         });
 
         return true;
+      } else {
+        console.log(`[Queue ${queueId}] No pending pages found`);
+        return false;
       }
-      return false;
     } catch (error) {
-      console.error('Error restarting queue:', error);
+      console.error(`[Queue ${queueId}] Error restarting queue:`, error);
       toast({
         title: 'Error',
         description: 'Failed to restart queue processing',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  const forceRestartQueueProcessing = async (queueId: string) => {
+    try {
+      console.log(`[Queue ${queueId}] Force restarting processing...`);
+      
+      // Force update queue status regardless of current state
+      const { error: updateError } = await supabase
+        .from('processing_queue')
+        .update({ 
+          status: 'processing',
+          started_at: new Date().toISOString(),
+          completed_at: null,
+          error_message: null,
+          current_page: null,
+          current_file: null
+        })
+        .eq('id', queueId);
+
+      if (updateError) throw updateError;
+
+      // Refresh queue items
+      await fetchQueueItems();
+      
+      console.log(`[Queue ${queueId}] Force restart: Status updated, starting processing...`);
+      
+      // Start processing
+      setTimeout(() => {
+        processQueueItem(queueId);
+      }, 100);
+      
+      toast({
+        title: 'Queue Force Restarted',
+        description: 'Processing has been forcefully restarted',
+      });
+
+      return true;
+    } catch (error) {
+      console.error(`[Queue ${queueId}] Error force restarting queue:`, error);
+      toast({
+        title: 'Error',
+        description: 'Failed to force restart queue processing',
         variant: 'destructive',
       });
       return false;
@@ -552,11 +613,12 @@ export const useProcessingQueue = () => {
     updateQueueStatus,
     deleteQueueItem,
     createQueueItem,
+    restartQueueProcessing,
+    forceRestartQueueProcessing,
+    checkForPendingQueues,
+    retryQueuePages,
     getQueueStats,
     refreshQueue: fetchQueueItems,
     refreshSuggestions: fetchSuggestions,
-    restartQueueProcessing,
-    checkForPendingQueues,
-    retryQueuePages,
   };
 };
