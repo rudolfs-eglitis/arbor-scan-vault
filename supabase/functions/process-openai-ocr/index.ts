@@ -224,8 +224,6 @@ Remember: This is Phase 1 (Raw Extraction) - preserve everything as-is without i
   });
 
   if (!response.ok) {
-
-  if (!response.ok) {
     const errorText = await response.text();
     console.error('OpenAI API error:', response.status, errorText);
     
