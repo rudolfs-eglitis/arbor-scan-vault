@@ -24,27 +24,42 @@ serve(async (req) => {
     
     console.log('Processing OCR for image:', { sourceId, page, imageUrl });
 
-    // Process OCR using OCR.space API
-    const formData = new FormData();
-    formData.append('url', imageUrl);
-    formData.append('apikey', ocrApiKey);
-    formData.append('language', 'eng');
-    formData.append('isOverlayRequired', 'true');
-    formData.append('detectOrientation', 'true');
-    formData.append('scale', 'true');
-    formData.append('isTable', 'true');
+    // Process OCR using Google Cloud Vision API
+    const visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${ocrApiKey}`;
+    
+    const requestBody = {
+      requests: [
+        {
+          image: {
+            source: {
+              imageUri: imageUrl
+            }
+          },
+          features: [
+            {
+              type: 'TEXT_DETECTION',
+              maxResults: 1
+            }
+          ]
+        }
+      ]
+    };
 
-    const ocrResponse = await fetch('https://api.ocr.space/parse/image', {
+    const ocrResponse = await fetch(visionApiUrl, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     });
 
     const ocrResult = await ocrResponse.json();
-    console.log('OCR Result:', ocrResult);
+    console.log('Google Vision API Result:', ocrResult);
 
-    if (!ocrResult.IsErroredOnProcessing && ocrResult.ParsedResults?.[0]) {
-      const parsedText = ocrResult.ParsedResults[0].ParsedText;
-      const confidence = ocrResult.ParsedResults[0].TextOverlay?.HasOverlay ? 0.8 : 0.6;
+    if (ocrResult.responses && ocrResult.responses[0] && ocrResult.responses[0].textAnnotations) {
+      const textAnnotations = ocrResult.responses[0].textAnnotations;
+      const parsedText = textAnnotations[0]?.description || '';
+      const confidence = textAnnotations[0]?.confidence || 0.8;
 
       // Generate content hash for deduplication
       const encoder = new TextEncoder();
@@ -64,7 +79,7 @@ serve(async (req) => {
           meta: {
             ocr_processed: true,
             ocr_confidence: confidence,
-            ocr_engine: 'ocr.space',
+            ocr_engine: 'google-cloud-vision',
             processing_date: new Date().toISOString()
           }
         })
@@ -103,7 +118,7 @@ serve(async (req) => {
           content_sha256: contentSha256,
           image_ids: [imageData.id],
           meta: {
-            ocr_engine: 'ocr.space',
+            ocr_engine: 'google-cloud-vision',
             ocr_confidence: confidence,
             detected_lang: detectedLang,
             figures_detected: [],
@@ -131,12 +146,12 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
-      console.error('OCR processing failed:', ocrResult);
+      console.error('Google Vision API processing failed:', ocrResult);
       return new Response(
         JSON.stringify({
           success: false,
           error: 'OCR processing failed',
-          details: ocrResult.ErrorMessage || 'Unknown error'
+          details: ocrResult.error?.message || 'No text detected in image'
         }),
         { 
           status: 500,
