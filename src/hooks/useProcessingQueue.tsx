@@ -724,14 +724,14 @@ export const useProcessingQueue = () => {
         // Continue anyway - this is not critical
       }
 
-      // Delete existing kb_images entries for this source
+      // Reset kb_images metadata (preserve source images but clear processing flags)
       const { error: imagesError } = await supabase
         .from('kb_images')
-        .delete()
+        .update({ meta: {} })
         .eq('source_id', queueData.source_id);
 
       if (imagesError) {
-        console.warn('Failed to delete existing images:', imagesError);
+        console.warn('Failed to reset image metadata:', imagesError);
         // Continue anyway - this is not critical
       }
 
