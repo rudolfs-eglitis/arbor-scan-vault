@@ -28,7 +28,9 @@ serve(async (req) => {
     console.log('Environment check:', {
       hasServiceAccount: !!serviceAccountJson,
       hasOcrApiKey: !!ocrApiKey,
-      serviceAccountLength: serviceAccountJson ? serviceAccountJson.length : 0
+      serviceAccountLength: serviceAccountJson ? serviceAccountJson.length : 0,
+      ocrApiKeyValue: ocrApiKey ? `${ocrApiKey.substring(0, 10)}...` : 'NOT_SET',
+      allEnvKeys: Object.keys(Deno.env.toObject()).filter(key => key.includes('OCR') || key.includes('GOOGLE'))
     });
 
     // Get the storage URL for the image if it's just a path
