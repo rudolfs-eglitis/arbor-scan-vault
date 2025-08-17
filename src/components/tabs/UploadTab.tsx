@@ -17,6 +17,9 @@ const UploadTab = () => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedSource, setSelectedSource] = useState('');
   const [batchSize, setBatchSize] = useState('30');
+  const [existingPages, setExistingPages] = useState<number[]>([]);
+  const [duplicateFiles, setDuplicateFiles] = useState<Set<number>>(new Set());
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { sources } = useKnowledgeBase();
@@ -49,7 +52,52 @@ const UploadTab = () => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       setSelectedFiles(prev => [...prev, ...files]);
+      checkForDuplicates([...selectedFiles, ...files]);
     }
+  };
+
+  // Check for existing pages when source changes
+  const checkExistingPages = async (sourceId: string) => {
+    if (!sourceId) {
+      setExistingPages([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('kb_images')
+        .select('page')
+        .eq('source_id', sourceId)
+        .order('page');
+
+      if (error) throw error;
+      
+      const pages = data?.map(item => item.page) || [];
+      setExistingPages(pages);
+      checkForDuplicates(selectedFiles);
+    } catch (error) {
+      console.error('Error checking existing pages:', error);
+    }
+  };
+
+  // Check for duplicates based on file position (page number)
+  const checkForDuplicates = (files: File[]) => {
+    if (!selectedSource || existingPages.length === 0) {
+      setDuplicateFiles(new Set());
+      setShowDuplicateWarning(false);
+      return;
+    }
+
+    const duplicates = new Set<number>();
+    files.forEach((_, index) => {
+      const pageNumber = index + 1;
+      if (existingPages.includes(pageNumber)) {
+        duplicates.add(index);
+      }
+    });
+
+    setDuplicateFiles(duplicates);
+    setShowDuplicateWarning(duplicates.size > 0);
   };
 
   const removeFile = (index: number) => {
@@ -84,6 +132,18 @@ const UploadTab = () => {
       return;
     }
 
+    // Show duplicate warning if there are duplicates
+    if (duplicateFiles.size > 0) {
+      const duplicateCount = duplicateFiles.size;
+      const duplicatePages = Array.from(duplicateFiles).map(i => i + 1).join(', ');
+      
+      const confirmed = window.confirm(
+        `⚠️ Duplicate Detection\n\n${duplicateCount} files will replace existing pages: ${duplicatePages}\n\nDo you want to continue? This will overwrite the existing images and their OCR data.`
+      );
+      
+      if (!confirmed) return;
+    }
+
     startUpload(selectedFiles);
     
     try {
@@ -100,32 +160,41 @@ const UploadTab = () => {
         const uploadPromises = batchFiles.map(async (file, batchFileIndex) => {
           const globalFileIndex = startIndex + batchFileIndex;
           const fileName = `${selectedSource}/batch-${batchIndex + 1}/page-${globalFileIndex + 1}-${file.name}`;
+          const pageNumber = globalFileIndex + 1;
           
-          const { error } = await supabase.storage
-            .from('kb-images')
-            .upload(fileName, file);
-          
-          if (error) throw error;
-          
-          // Create kb_images record
-          const { error: imageError } = await supabase
-            .from('kb_images')
-            .insert({
-              source_id: selectedSource,
-              page: globalFileIndex + 1,
-              uri: fileName,
-              caption: `Page ${globalFileIndex + 1}`,
-              meta: {
-                filename: file.name,
-                fileSize: file.size,
-                batch: batchIndex + 1,
-                uploadedAt: new Date().toISOString()
-              }
-            });
-          
-          if (imageError) throw imageError;
-          
-          return fileName;
+          try {
+            // Upload to storage with upsert to handle duplicates
+            const { error: storageError } = await supabase.storage
+              .from('kb-images')
+              .upload(fileName, file, { upsert: true });
+            
+            if (storageError) throw new Error(`Storage upload failed for ${file.name}: ${storageError.message}`);
+            
+            // Use upsert for kb_images record to handle duplicates
+            const { error: imageError } = await supabase
+              .from('kb_images')
+              .upsert({
+                source_id: selectedSource,
+                page: pageNumber,
+                uri: fileName,
+                caption: `Page ${pageNumber}`,
+                meta: {
+                  filename: file.name,
+                  fileSize: file.size,
+                  batch: batchIndex + 1,
+                  uploadedAt: new Date().toISOString(),
+                  replaced: duplicateFiles.has(globalFileIndex)
+                }
+              }, {
+                onConflict: 'source_id,page'
+              });
+            
+            if (imageError) throw new Error(`Database insert failed for ${file.name}: ${imageError.message}`);
+            
+            return fileName;
+          } catch (error) {
+            throw new Error(`Failed to process ${file.name}: ${error.message}`);
+          }
         });
         
         await Promise.all(uploadPromises);
@@ -143,13 +212,19 @@ const UploadTab = () => {
       // Clear files after successful upload
       setSelectedFiles([]);
       setSelectedSource('');
+      setDuplicateFiles(new Set());
+      setShowDuplicateWarning(false);
       completeUpload();
       
     } catch (error) {
       console.error('Error uploading files:', error);
+      
+      // Provide specific error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
       toast({
-        title: 'Error',
-        description: 'Failed to upload files to queue',
+        title: 'Upload Failed',
+        description: errorMessage,
         variant: 'destructive',
       });
       cancelUpload();
@@ -218,7 +293,10 @@ const UploadTab = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="source">Target Source</Label>
-              <Select value={selectedSource} onValueChange={setSelectedSource}>
+              <Select value={selectedSource} onValueChange={(value) => {
+                setSelectedSource(value);
+                checkExistingPages(value);
+              }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a source" />
                 </SelectTrigger>
@@ -230,6 +308,11 @@ const UploadTab = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {existingPages.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Existing pages: {existingPages.join(', ')}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="batch-size">Batch Size</Label>
@@ -248,6 +331,17 @@ const UploadTab = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Duplicate Warning */}
+      {showDuplicateWarning && (
+        <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+            <strong>Duplicate Files Detected:</strong> {duplicateFiles.size} files will replace existing pages ({Array.from(duplicateFiles).map(i => i + 1).join(', ')}). 
+            Uploading will overwrite the existing images and their OCR data.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Upload Area */}
       <Card>
@@ -319,23 +413,38 @@ const UploadTab = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-y-auto">
-              {selectedFiles.map((file, index) => (
-                <div key={index} className="relative group">
-                  <div className="aspect-square border rounded-lg p-2 bg-muted/50 flex flex-col items-center justify-center text-center">
-                    <Image className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-xs font-medium truncate w-full">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+              {selectedFiles.map((file, index) => {
+                const isDuplicate = duplicateFiles.has(index);
+                const pageNumber = index + 1;
+                
+                return (
+                  <div key={index} className="relative group">
+                    <div className={`aspect-square border rounded-lg p-2 flex flex-col items-center justify-center text-center ${
+                      isDuplicate 
+                        ? 'bg-yellow-50 border-yellow-300 dark:bg-yellow-950 dark:border-yellow-600' 
+                        : 'bg-muted/50'
+                    }`}>
+                      <Image className={`h-8 w-8 mb-2 ${isDuplicate ? 'text-yellow-600' : 'text-muted-foreground'}`} />
+                      <p className="text-xs font-medium truncate w-full">{file.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                      <p className="text-xs font-semibold">Page {pageNumber}</p>
+                      {isDuplicate && (
+                        <Badge variant="outline" className="text-xs mt-1 bg-yellow-100 text-yellow-800 border-yellow-300">
+                          Duplicate
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeFile(index)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeFile(index)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
