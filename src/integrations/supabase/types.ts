@@ -790,6 +790,118 @@ export type Database = {
           },
         ]
       }
+      page_suggestions: {
+        Row: {
+          applied_at: string | null
+          confidence_score: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          page_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          suggested_data: Json
+          suggestion_type: Database["public"]["Enums"]["suggestion_type"]
+          target_table: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          page_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggested_data: Json
+          suggestion_type: Database["public"]["Enums"]["suggestion_type"]
+          target_table: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          page_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          suggested_data?: Json
+          suggestion_type?: Database["public"]["Enums"]["suggestion_type"]
+          target_table?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "page_suggestions_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "queue_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      processing_queue: {
+        Row: {
+          batch_name: string
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          estimated_completion: string | null
+          id: string
+          processed_pages: number
+          progress_percentage: number
+          source_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["processing_status"]
+          total_pages: number
+          updated_at: string
+        }
+        Insert: {
+          batch_name: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          estimated_completion?: string | null
+          id?: string
+          processed_pages?: number
+          progress_percentage?: number
+          source_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["processing_status"]
+          total_pages?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_name?: string
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          estimated_completion?: string | null
+          id?: string
+          processed_pages?: number
+          progress_percentage?: number
+          source_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["processing_status"]
+          total_pages?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "processing_queue_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "kb_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -816,6 +928,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      queue_pages: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          extracted_text: string | null
+          id: string
+          ocr_confidence: number | null
+          page_number: number
+          processed_at: string | null
+          queue_id: string
+          status: Database["public"]["Enums"]["processing_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          extracted_text?: string | null
+          id?: string
+          ocr_confidence?: number | null
+          page_number: number
+          processed_at?: string | null
+          queue_id: string
+          status?: Database["public"]["Enums"]["processing_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          extracted_text?: string | null
+          id?: string
+          ocr_confidence?: number | null
+          page_number?: number
+          processed_at?: string | null
+          queue_id?: string
+          status?: Database["public"]["Enums"]["processing_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queue_pages_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "processing_queue"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       species: {
         Row: {
@@ -1907,6 +2066,19 @@ export type Database = {
         | "treat_pathogen"
         | "site_protect"
         | "target_manage"
+      processing_status:
+        | "pending"
+        | "processing"
+        | "completed"
+        | "error"
+        | "paused"
+      suggestion_type:
+        | "species"
+        | "defect"
+        | "fungus"
+        | "mitigation"
+        | "feature"
+        | "other"
       tissue_pref:
         | "root"
         | "buttress"
@@ -2122,6 +2294,21 @@ export const Constants = {
         "treat_pathogen",
         "site_protect",
         "target_manage",
+      ],
+      processing_status: [
+        "pending",
+        "processing",
+        "completed",
+        "error",
+        "paused",
+      ],
+      suggestion_type: [
+        "species",
+        "defect",
+        "fungus",
+        "mitigation",
+        "feature",
+        "other",
       ],
       tissue_pref: [
         "root",
