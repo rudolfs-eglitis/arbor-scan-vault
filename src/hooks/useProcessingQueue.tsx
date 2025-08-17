@@ -186,13 +186,13 @@ export const useProcessingQueue = () => {
             .update({ status: 'processing' })
             .eq('id', page.id);
 
-          // Call OCR function
+          // Call OCR function with storage path
           const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('process-ocr', {
             body: {
               imageUrl: image.uri,
               sourceId: queueItem.source_id,
               page: page.page_number,
-              caption: image.caption
+              caption: image.caption || `Page ${page.page_number}`
             }
           });
 

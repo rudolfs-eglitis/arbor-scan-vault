@@ -20,9 +20,18 @@ serve(async (req) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { imageUrl, sourceId, page, caption } = await req.json();
+        const { imageUrl, sourceId, page, caption } = await req.json();
     
     console.log('Processing OCR for image:', { sourceId, page, imageUrl });
+
+    // Get the storage URL for the image if it's just a path
+    let fullImageUrl = imageUrl;
+    if (!imageUrl.startsWith('http')) {
+      const { data: urlData } = supabase.storage
+        .from('kb-images')
+        .getPublicUrl(imageUrl);
+      fullImageUrl = urlData.publicUrl;
+    }
 
     // Process OCR using Google Cloud Vision API
     const visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${ocrApiKey}`;
@@ -32,7 +41,7 @@ serve(async (req) => {
         {
           image: {
             source: {
-              imageUri: imageUrl
+              imageUri: fullImageUrl
             }
           },
           features: [
@@ -68,26 +77,25 @@ serve(async (req) => {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const contentSha256 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      // Insert into kb_images
+      // Update existing kb_images record with OCR results
       const { data: imageData, error: imageError } = await supabase
         .from('kb_images')
-        .insert({
-          source_id: sourceId,
-          page: page,
-          uri: imageUrl,
-          caption: caption,
+        .update({
           meta: {
             ocr_processed: true,
             ocr_confidence: confidence,
             ocr_engine: 'google-cloud-vision',
-            processing_date: new Date().toISOString()
+            processing_date: new Date().toISOString(),
+            ocr_text: parsedText
           }
         })
+        .eq('source_id', sourceId)
+        .eq('page', page)
         .select()
         .single();
 
       if (imageError) {
-        console.error('Error inserting image:', imageError);
+        console.error('Error updating image:', imageError);
         throw imageError;
       }
 
@@ -131,6 +139,36 @@ serve(async (req) => {
       if (chunkError) {
         console.error('Error inserting chunk:', chunkError);
         // Don't throw here, image was already saved
+      }
+
+      // Generate AI suggestions for the extracted content
+      if (chunkData?.id && parsedText.trim().length > 50) {
+        try {
+          // Create suggestion for species identification
+          const speciesSuggestion = {
+            page_id: chunkData.id,
+            suggestion_type: 'species_mention',
+            target_table: 'species_defects',
+            suggested_data: {
+              content_snippet: parsedText.substring(0, 200),
+              suggested_species: [],
+              suggested_defects: [],
+              confidence: confidence * 0.8 // Lower confidence for AI suggestions
+            },
+            confidence_score: confidence * 0.8,
+            status: 'pending'
+          };
+
+          const { error: suggestionError } = await supabase
+            .from('page_suggestions')
+            .insert(speciesSuggestion);
+
+          if (suggestionError) {
+            console.error('Error creating suggestion:', suggestionError);
+          }
+        } catch (suggestionErr) {
+          console.error('Error in suggestion generation:', suggestionErr);
+        }
       }
 
       return new Response(
