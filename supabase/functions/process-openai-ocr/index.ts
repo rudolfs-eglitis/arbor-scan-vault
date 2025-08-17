@@ -248,9 +248,9 @@ async function updateDatabase(supabase: any, request: OCRRequest, textResult: Te
       .from('kb_chunks')
       .insert({
         source_id: sourceId,
-        page: page.toString(),
+        pages: page.toString(),
         content: text,
-        content_hash: contentHash,
+        content_sha256: contentHash,
         lang: language,
         meta: {
           ocr_confidence: confidence,
