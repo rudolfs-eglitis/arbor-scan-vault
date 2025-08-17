@@ -43,3 +43,9 @@ verify_jwt = false
 
 [functions.process-openai-ocr]
 verify_jwt = false
+
+[functions.translate-content]
+verify_jwt = false
+
+[functions.extract-structured-data]
+verify_jwt = false

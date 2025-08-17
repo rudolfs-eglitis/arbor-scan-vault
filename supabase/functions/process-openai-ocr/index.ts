@@ -13,12 +13,13 @@ interface OCRRequest {
   page: number;
 }
 
-interface TextResult {
-  text: string;
-  confidence: number;
-  language: string;
-  contentHash: string;
-}
+  interface TextResult {
+    text: string;
+    confidence: number;
+    language: string;
+    contentHash: string;
+    figures?: any[];
+  }
 
 // Custom error classes for better error categorization
 class OCRError extends Error {
@@ -155,78 +156,74 @@ async function processImageWithOpenAI(
   // First verify the image is accessible
   await verifyImageUrl(imageUrl);
 
-  const systemPrompt = `You are an expert OCR system specializing in extracting content from book pages and documents. Your task is to:
-
-1. Extract ALL visible text from the image, maintaining original formatting and structure
-2. Preserve paragraph breaks, bullet points, and other formatting elements
-3. Include page numbers, headers, footers, and captions if present
-4. Handle multiple languages (primarily Swedish and English)
-5. For unclear or damaged text, make your best interpretation but don't hallucinate content
-6. ALSO identify and describe any figures, images, diagrams, charts, or illustrations
-
-Content extraction format:
-- First extract all text content
-- Then, if there are any figures/images/diagrams, add a section:
-  [FIGURES FOUND]
-  Figure 1: [Brief description of what the figure shows]
-  Figure 2: [Brief description if multiple figures]
-  [END FIGURES]
-
-Important guidelines:
-- Return ONLY the extracted text content and figure descriptions
-- Maintain the original text structure and formatting
-- Do not add explanations, comments, or metadata beyond the figure descriptions
-- If no text is found, return exactly: NO_TEXT_FOUND
-- For mathematical formulas or special characters, represent them as clearly as possible
-- Include any visible table content in a structured format
-- Describe figures briefly but accurately (e.g., "Diagram showing tree root system", "Photo of oak leaf damage")`;
-
-  // Prepare request body with better prompt
-  const requestBody = {
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'Please extract all visible text and identify any figures, diagrams, or illustrations from this image. Pay attention to both main content and any smaller text, headers, footnotes, or captions. Also describe any visual elements like figures, photos, or diagrams using the format specified in the system prompt.',
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: imageUrl,
-              detail: 'high'
-            },
-          },
-        ],
-      },
-    ],
-    max_tokens: 4000,
-    temperature: 0.1,
-  };
-
-  console.log('Sending request to OpenAI Vision API...');
-  
-  // Add timeout and retry logic for OpenAI API calls
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
-  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${openaiApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(requestBody),
-    signal: controller.signal,
+    body: JSON.stringify({
+      model: 'gpt-4.1-2025-04-14',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert OCR and content extraction specialist focusing on forestry, arboriculture, and botanical literature.
+
+Your task is to:
+1. Extract ALL text content exactly as written, preserving structure and formatting
+2. Identify and describe all figures, images, diagrams, charts, tables, and illustrations
+3. Maintain original language without translation or interpretation
+4. Preserve scientific nomenclature, measurements, and technical terminology
+5. Determine the page number from filename, headers, footers, or page markers
+
+IMPORTANT INSTRUCTIONS:
+- Extract text verbatim without summarization or interpretation
+- Maintain original paragraph breaks, lists, and structure
+- Preserve all scientific names in their original form
+- Keep measurements, ratings, and numerical data unchanged
+- Note any handwritten text, annotations, or marginal notes
+- Identify page number from context clues
+
+PAGE NUMBER DETECTION:
+Look for page numbers in:
+- Headers or footers
+- Corner positions
+- Chapter/section numbering
+- Sequential indicators
+If no clear page number, estimate from content context
+
+FIGURE/IMAGE IDENTIFICATION:
+When you identify figures, images, diagrams, charts, or illustrations, format them as:
+[FIGURES FOUND]
+Figure Type: [diagram/photo/chart/table/illustration/map/etc.]
+Description: [detailed description of visual content]
+Caption: [any visible caption or title]
+Scientific Content: [species shown, defects illustrated, measurements, etc.]
+Location: [position on page: top/middle/bottom/left/right/center]
+[END FIGURES]
+
+For tables, extract the complete table structure and data.
+For charts/graphs, describe axes, data points, and trends.
+For photographs, identify subjects (species, defects, symptoms, etc.).
+For diagrams, describe what is being illustrated and any labels.
+
+QUALITY INDICATORS:
+- Note any unclear, damaged, or illegible text areas
+- Indicate confidence level for uncertain text
+- Mark any potential OCR artifacts or recognition issues
+
+Remember: This is Phase 1 (Raw Extraction) - preserve everything as-is without interpretation or translation.`
+        },
+        {
+          role: 'user',
+          content: `Extract all text and identify all figures from this image. Preserve original formatting and language:\n\n[Image provided]`
+        }
+      ],
+      max_completion_tokens: 4000,
+    }),
   });
-  
-  clearTimeout(timeoutId);
+
+  if (!response.ok) {
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -253,38 +250,123 @@ Important guidelines:
   return result;
 }
 
-// Process extracted text
-async function processExtractedText(openaiResult: any): Promise<TextResult> {
-  const extractedText = openaiResult.choices[0].message.content?.trim() || '';
+async function processExtractedText(openaiResult: any, supabase: any, sourceId: string, page: number): Promise<TextResult> {
+  console.log('Processing extracted text and figures...');
   
-  if (!extractedText || extractedText === 'NO_TEXT_FOUND') {
-    return {
-      text: '',
-      confidence: 0,
-      language: 'unknown',
-      contentHash: ''
-    };
+  const extractedContent = openaiResult.choices[0].message.content;
+  
+  if (!extractedContent || extractedContent.trim().length === 0) {
+    throw new OCRError('No content extracted from image', 400);
   }
 
-  // Calculate confidence based on response quality
-  const confidence = Math.min(95, Math.max(85, 90 + (extractedText.length / 100)));
+  // Extract figures and save them
+  const figures = await extractAndSaveFigures(extractedContent, supabase, sourceId, page);
+  
+  // Clean text (remove figure markers for the main text)
+  const cleanedText = extractedContent
+    .replace(/\[FIGURES FOUND\][\s\S]*?\[END FIGURES\]/g, '[FIGURE REMOVED]')
+    .trim();
 
-  // Simple language detection (could be enhanced)
-  const language = detectLanguage(extractedText);
-
+  // Calculate confidence (simplified - could be enhanced)
+  const confidence = Math.min(0.95, Math.max(0.5, cleanedText.length / 100));
+  
+  // Detect language
+  const language = detectLanguage(cleanedText);
+  
   // Generate content hash
   const encoder = new TextEncoder();
-  const data = encoder.encode(extractedText);
+  const data = encoder.encode(cleanedText);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const contentHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
   return {
-    text: extractedText,
+    text: cleanedText,
     confidence,
     language,
-    contentHash
+    contentHash,
+    figures
   };
+}
+
+async function extractAndSaveFigures(content: string, supabase: any, sourceId: string, page: number): Promise<any[]> {
+  console.log('Extracting and cataloging figures...');
+  
+  const figureRegex = /\[FIGURES FOUND\]([\s\S]*?)\[END FIGURES\]/g;
+  const figures = [];
+  let match;
+
+  while ((match = figureRegex.exec(content)) !== null) {
+    const figureContent = match[1].trim();
+    
+    // Parse figure details
+    const figureData = parseFigureDetails(figureContent);
+    
+    // Store figure metadata in kb_images
+    try {
+      const { data, error } = await supabase
+        .from('kb_images')
+        .insert({
+          source_id: sourceId,
+          page: page,
+          caption: figureData.caption || figureData.description,
+          meta: {
+            figure_type: figureData.type,
+            description: figureData.description,
+            scientific_content: figureData.scientificContent,
+            location: figureData.location,
+            extraction_method: 'openai_vision_phase1'
+          }
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to store figure metadata:', error);
+      } else {
+        figures.push({
+          id: data.id,
+          type: figureData.type,
+          description: figureData.description,
+          caption: figureData.caption,
+          location: figureData.location
+        });
+        console.log(`Stored figure metadata for ${figureData.type} on page ${page}`);
+      }
+    } catch (error) {
+      console.error('Error storing figure:', error);
+    }
+  }
+
+  console.log(`Processed ${figures.length} figures from page ${page}`);
+  return figures;
+}
+
+function parseFigureDetails(figureContent: string): any {
+  const lines = figureContent.split('\n').map(line => line.trim()).filter(line => line);
+  const details = {
+    type: 'unknown',
+    description: '',
+    caption: '',
+    scientificContent: '',
+    location: ''
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('Figure Type:')) {
+      details.type = line.replace('Figure Type:', '').trim();
+    } else if (line.startsWith('Description:')) {
+      details.description = line.replace('Description:', '').trim();
+    } else if (line.startsWith('Caption:')) {
+      details.caption = line.replace('Caption:', '').trim();
+    } else if (line.startsWith('Scientific Content:')) {
+      details.scientificContent = line.replace('Scientific Content:', '').trim();
+    } else if (line.startsWith('Location:')) {
+      details.location = line.replace('Location:', '').trim();
+    }
+  }
+
+  return details;
 }
 
 // Simple language detection
@@ -319,71 +401,74 @@ async function updateProcessingStage(supabase: any, sourceId: string, page: numb
   }
 }
 
-// Update database with OCR results
 async function updateDatabase(supabase: any, request: OCRRequest, textResult: TextResult): Promise<void> {
-  const { imageUrl, sourceId, page } = request;
-  const { text, confidence, language, contentHash } = textResult;
+  console.log('Updating database with Phase 1 OCR results...');
 
-  // Update stage: saving results
-  await updateProcessingStage(supabase, sourceId, page, 'saving');
-  
-  console.log('Updating database with OCR results');
+  // Insert extracted text into kb_chunks with phase 1 metadata
+  const { data: chunkData, error: chunkError } = await supabase
+    .from('kb_chunks')
+    .insert({
+      source_id: request.sourceId,
+      content: textResult.text,
+      src_content: textResult.text,
+      pages: request.page.toString(),
+      lang: textResult.language,
+      content_sha256: textResult.contentHash,
+      meta: {
+        processing_phase: 'phase1_extraction',
+        ocr_confidence: textResult.confidence,
+        ocr_method: 'openai_vision_phase1',
+        figures_count: textResult.figures?.length || 0,
+        processed_at: new Date().toISOString(),
+        phase1_completed_at: new Date().toISOString()
+      }
+    })
+    .select()
+    .single();
 
-  // Insert or update kb_chunks table with the extracted text
-  if (text && text.length > 10) {
-    const { data: chunkData, error: insertError } = await supabase
-      .from('kb_chunks')
-      .insert({
-        source_id: sourceId,
-        pages: page.toString(),
-        content: text,
-        content_sha256: contentHash,
-        lang: language,
-        meta: {
-          ocr_confidence: confidence,
-          ocr_provider: 'openai_vision',
-          processed_at: new Date().toISOString(),
-          image_url: imageUrl
-        }
-      })
-      .select('id')
-      .single();
-
-    if (insertError) {
-      console.error('Error inserting kb_chunks:', insertError);
-      throw new OCRError(`Chunk insertion failed: ${insertError.message}`);
-    }
-
-    console.log(`Created chunk with ID: ${chunkData.id}`);
-
-    // Generate suggestions if text is substantial
-    if (text.length > 50) {
-      await updateProcessingStage(supabase, sourceId, page, 'suggestions');
-      await generateSuggestions(supabase, chunkData.id, textResult);
-    }
-  } else {
-    console.log('No substantial text extracted, skipping chunk creation');
+  if (chunkError) {
+    console.error('Failed to insert chunk:', chunkError);
+    throw new OCRError(`Database error: ${chunkError.message}`, 500);
   }
 
-  // Update kb_images table if there's a matching record (optional)
-  const { error: updateError } = await supabase
+  console.log(`Inserted chunk with ID: ${chunkData.id} (Phase 1 complete)`);
+
+  // Update kb_images table with OCR metadata
+  const { error: imageError } = await supabase
     .from('kb_images')
     .update({
       meta: {
         ocr_processed: true,
-        ocr_confidence: confidence,
-        ocr_language: language,
-        ocr_provider: 'openai_vision',
-        processed_at: new Date().toISOString(),
-        text_length: text ? text.length : 0
+        ocr_confidence: textResult.confidence,
+        text_length: textResult.text.length,
+        content_hash: textResult.contentHash,
+        processing_phase: 'phase1_extraction',
+        processed_at: new Date().toISOString()
       }
     })
-    .eq('source_id', sourceId)
-    .eq('page', page);
+    .eq('source_id', request.sourceId)
+    .eq('page', request.page);
 
-  if (updateError) {
-    console.log('Note: Could not update kb_images (this is optional):', updateError.message);
+  if (imageError) {
+    console.warn('Failed to update image metadata:', imageError);
   }
+
+  // Update queue_pages with phase 1 completion and figures
+  const { error: queueError } = await supabase
+    .from('queue_pages')
+    .update({
+      phase1_completed_at: new Date().toISOString(),
+      figures_extracted: textResult.figures || [],
+      extracted_text: textResult.text.substring(0, 1000) // Store preview
+    })
+    .eq('queue_id', request.sourceId)
+    .eq('page_number', request.page);
+
+  if (queueError) {
+    console.warn('Failed to update queue page phase 1 status:', queueError);
+  }
+
+  console.log('Database updated successfully for Phase 1');
 }
 
 // Generate AI suggestions (placeholder for future enhancement)
@@ -462,8 +547,8 @@ serve(async (req) => {
     // Process image with OpenAI Vision
     const openaiResult = await processImageWithOpenAI(resolvedImageUrl, openaiApiKey, supabase, ocrRequest.sourceId, ocrRequest.page);
 
-    // Process extracted text
-    const textResult = await processExtractedText(openaiResult);
+    // Process the extracted text and figures
+    const textResult = await processExtractedText(openaiResult, supabase, ocrRequest.sourceId, ocrRequest.page);
     console.log('Text processing completed:', { 
       textLength: textResult.text.length, 
       confidence: textResult.confidence,

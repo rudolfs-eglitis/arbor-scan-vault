@@ -853,6 +853,7 @@ export type Database = {
           created_at: string
           current_file: string | null
           current_page: number | null
+          current_phase: string | null
           current_stage: string | null
           error_message: string | null
           estimated_completion: string | null
@@ -872,6 +873,7 @@ export type Database = {
           created_at?: string
           current_file?: string | null
           current_page?: number | null
+          current_phase?: string | null
           current_stage?: string | null
           error_message?: string | null
           estimated_completion?: string | null
@@ -891,6 +893,7 @@ export type Database = {
           created_at?: string
           current_file?: string | null
           current_page?: number | null
+          current_phase?: string | null
           current_stage?: string | null
           error_message?: string | null
           estimated_completion?: string | null
@@ -946,9 +949,13 @@ export type Database = {
           created_at: string
           error_message: string | null
           extracted_text: string | null
+          figures_extracted: Json | null
           id: string
           ocr_confidence: number | null
           page_number: number
+          phase1_completed_at: string | null
+          phase2_completed_at: string | null
+          phase3_completed_at: string | null
           processed_at: string | null
           queue_id: string
           status: Database["public"]["Enums"]["processing_status"]
@@ -958,9 +965,13 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           extracted_text?: string | null
+          figures_extracted?: Json | null
           id?: string
           ocr_confidence?: number | null
           page_number: number
+          phase1_completed_at?: string | null
+          phase2_completed_at?: string | null
+          phase3_completed_at?: string | null
           processed_at?: string | null
           queue_id: string
           status?: Database["public"]["Enums"]["processing_status"]
@@ -970,9 +981,13 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           extracted_text?: string | null
+          figures_extracted?: Json | null
           id?: string
           ocr_confidence?: number | null
           page_number?: number
+          phase1_completed_at?: string | null
+          phase2_completed_at?: string | null
+          phase3_completed_at?: string | null
           processed_at?: string | null
           queue_id?: string
           status?: Database["public"]["Enums"]["processing_status"]
