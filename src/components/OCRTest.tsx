@@ -48,14 +48,18 @@ export const OCRTest: React.FC = () => {
       return urlData.publicUrl;
     }
 
-    // If no images in root, check subdirectories
+    // If no images in root, check subdirectories recursively
     for (const item of rootFiles) {
       if (item.name && !item.metadata) { // This is likely a directory
+        console.log('Checking directory:', item.name);
+        
+        // Check first level subdirectory
         const { data: subFiles, error: subError } = await supabase.storage
           .from('kb-images')
           .list(item.name, { limit: 100 });
         
         if (!subError && subFiles) {
+          // Look for images in this subdirectory
           const subImage = subFiles.find(file => 
             file.name && 
             file.metadata && 
@@ -63,10 +67,38 @@ export const OCRTest: React.FC = () => {
           );
           
           if (subImage) {
+            console.log('Found image in subdirectory:', `${item.name}/${subImage.name}`);
             const { data: urlData } = await supabase.storage
               .from('kb-images')
               .getPublicUrl(`${item.name}/${subImage.name}`);
             return urlData.publicUrl;
+          }
+          
+          // If no images found, check second level subdirectories
+          for (const subItem of subFiles) {
+            if (subItem.name && !subItem.metadata) { // This is likely another directory
+              console.log('Checking nested directory:', `${item.name}/${subItem.name}`);
+              
+              const { data: nestedFiles, error: nestedError } = await supabase.storage
+                .from('kb-images')
+                .list(`${item.name}/${subItem.name}`, { limit: 100 });
+              
+              if (!nestedError && nestedFiles) {
+                const nestedImage = nestedFiles.find(file => 
+                  file.name && 
+                  file.metadata && 
+                  file.metadata.mimetype?.startsWith('image/')
+                );
+                
+                if (nestedImage) {
+                  console.log('Found image in nested directory:', `${item.name}/${subItem.name}/${nestedImage.name}`);
+                  const { data: urlData } = await supabase.storage
+                    .from('kb-images')
+                    .getPublicUrl(`${item.name}/${subItem.name}/${nestedImage.name}`);
+                  return urlData.publicUrl;
+                }
+              }
+            }
           }
         }
       }
