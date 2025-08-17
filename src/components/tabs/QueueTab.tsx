@@ -46,7 +46,7 @@ const QueueTab = () => {
   const [selectedQueueItem, setSelectedQueueItem] = useState<any>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
-  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats, forceRestartQueueProcessing, refreshQueue, restartEntireBatch } = useProcessingQueue();
+  const { queueItems, loading, updateQueueStatus, deleteQueueItem, getQueueStats, forceRestartQueueProcessing, refreshQueue, restartEntireBatch, cleanupAndRepopulateQueue } = useProcessingQueue();
 
   const openDetailsModal = (item: any) => {
     setSelectedQueueItem(item);
@@ -119,6 +119,14 @@ const QueueTab = () => {
           <p className="text-muted-foreground">Manage OCR processing batches and monitor progress</p>
         </div>
         <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={cleanupAndRepopulateQueue}
+            className="bg-warning/10 text-warning hover:bg-warning hover:text-warning-foreground"
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Rebuild Queue
+          </Button>
           <Button variant="outline" onClick={() => setShowSuggestions(true)}>
             <Brain className="h-4 w-4 mr-2" />
             View Suggestions

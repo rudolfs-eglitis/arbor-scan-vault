@@ -888,6 +888,138 @@ export const useProcessingQueue = () => {
     }
   };
 
+  const cleanupAndRepopulateQueue = async () => {
+    try {
+      setLoading(true);
+      console.log('Starting complete queue cleanup and repopulation...');
+
+      // Step 1: Delete all queue pages first (due to foreign key constraints)
+      const { error: pagesDeleteError } = await supabase
+        .from('queue_pages')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      if (pagesDeleteError) {
+        console.error('Failed to delete queue pages:', pagesDeleteError);
+        throw pagesDeleteError;
+      }
+
+      // Step 2: Delete all processing queue entries
+      const { error: queueDeleteError } = await supabase
+        .from('processing_queue')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      if (queueDeleteError) {
+        console.error('Failed to delete processing queue:', queueDeleteError);
+        throw queueDeleteError;
+      }
+
+      console.log('Queue cleanup completed successfully');
+
+      // Step 3: Get all sources from kb_images and group by source_id
+      const { data: images, error: imagesError } = await supabase
+        .from('kb_images')
+        .select(`
+          source_id,
+          page,
+          kb_sources (
+            title,
+            authors
+          )
+        `)
+        .order('source_id')
+        .order('page');
+
+      if (imagesError) {
+        console.error('Failed to fetch images:', imagesError);
+        throw imagesError;
+      }
+
+      if (!images || images.length === 0) {
+        toast({
+          title: 'No Images Found',
+          description: 'No images found in kb_images to create queue from',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Step 4: Group images by source_id
+      const sourceGroups = images.reduce((groups, image) => {
+        if (!groups[image.source_id]) {
+          groups[image.source_id] = {
+            pages: [],
+            source_info: image.kb_sources
+          };
+        }
+        groups[image.source_id].pages.push(image.page);
+        return groups;
+      }, {} as Record<string, { pages: number[], source_info: any }>);
+
+      console.log(`Found ${Object.keys(sourceGroups).length} sources to create queues for`);
+
+      // Step 5: Create new queue entries for each source
+      for (const [sourceId, sourceData] of Object.entries(sourceGroups)) {
+        const maxPage = Math.max(...sourceData.pages);
+        const sourceTitle = sourceData.source_info?.title || sourceId;
+        
+        console.log(`Creating queue for source ${sourceId} with ${maxPage} pages`);
+
+        // Create queue entry
+        const { data: queueEntry, error: queueCreateError } = await supabase
+          .from('processing_queue')
+          .insert({
+            source_id: sourceId,
+            batch_name: `Reprocessing: ${sourceTitle}`,
+            total_pages: maxPage,
+            status: 'pending'
+          })
+          .select()
+          .single();
+
+        if (queueCreateError) {
+          console.error(`Failed to create queue for source ${sourceId}:`, queueCreateError);
+          continue;
+        }
+
+        // Create queue pages for all pages (1 to maxPage)
+        const pages = Array.from({ length: maxPage }, (_, i) => ({
+          queue_id: queueEntry.id,
+          page_number: i + 1,
+          status: 'pending' as const
+        }));
+
+        const { error: pagesCreateError } = await supabase
+          .from('queue_pages')
+          .insert(pages);
+
+        if (pagesCreateError) {
+          console.error(`Failed to create pages for queue ${queueEntry.id}:`, pagesCreateError);
+        } else {
+          console.log(`Successfully created queue for ${sourceId} with ${maxPage} pages`);
+        }
+      }
+
+      await fetchQueueItems();
+      
+      toast({
+        title: 'Queue Rebuilt Successfully',
+        description: `Created ${Object.keys(sourceGroups).length} new queue entries from existing images`,
+      });
+
+    } catch (error) {
+      console.error('Error in cleanupAndRepopulateQueue:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to cleanup and repopulate queue',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getQueueStats = () => {
     const pending = queueItems.filter(item => item.status === 'pending').length;
     const processing = queueItems.filter(item => item.status === 'processing').length;
@@ -957,6 +1089,7 @@ export const useProcessingQueue = () => {
     restartEntireBatch,
     checkForPendingQueues,
     retryQueuePages,
+    cleanupAndRepopulateQueue,
     getQueueStats,
     refreshQueue: fetchQueueItems,
     refreshSuggestions: fetchSuggestions,
