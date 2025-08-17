@@ -8,6 +8,7 @@ import { useProcessingQueue } from '@/hooks/useProcessingQueue';
 import PageSuggestionsPanel from '@/components/knowledgeBase/PageSuggestionsPanel';
 import QueueDetailsModal from '@/components/queue/QueueDetailsModal';
 import QueueResultsModal from '@/components/queue/QueueResultsModal';
+import EnhancedProgressBar from '@/components/queue/EnhancedProgressBar';
 
 const getStatusIcon = (status: string) => {
   switch (status) {
@@ -249,20 +250,8 @@ const QueueTab = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Progress Bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{item.processed_pages}/{item.total_pages} pages • {item.progress_percentage}%</span>
-                </div>
-                <Progress value={item.progress_percentage} className="h-2" />
-                {item.status === 'processing' && item.current_file && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                    Processing: {item.current_file} (Page {item.current_page})
-                  </div>
-                )}
-              </div>
+              {/* Enhanced Progress Bar */}
+              <EnhancedProgressBar queueItem={item} />
 
               {/* Details */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">

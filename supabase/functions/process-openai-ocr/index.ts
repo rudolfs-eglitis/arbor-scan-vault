@@ -116,12 +116,24 @@ async function verifyImageUrl(imageUrl: string): Promise<void> {
   }
 }
 
-// Process image with OpenAI Vision
-async function processImageWithOpenAI(imageUrl: string, openaiApiKey: string): Promise<any> {
+// Process image with OpenAI Vision with progress updates
+async function processImageWithOpenAI(
+  imageUrl: string, 
+  openaiApiKey: string, 
+  supabase: any, 
+  sourceId: string, 
+  page: number
+): Promise<any> {
   console.log('Processing image with OpenAI Vision:', imageUrl);
 
+  // Update stage: loading image
+  await updateProcessingStage(supabase, sourceId, page, 'loading');
+  
   // First verify the image is accessible
   await verifyImageUrl(imageUrl);
+
+  // Update stage: OCR processing
+  await updateProcessingStage(supabase, sourceId, page, 'ocr');
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -180,6 +192,9 @@ async function processImageWithOpenAI(imageUrl: string, openaiApiKey: string): P
     throw new OCRError('Invalid OpenAI response format');
   }
 
+  // Update stage: processing content
+  await updateProcessingStage(supabase, sourceId, page, 'processing');
+
   return result;
 }
 
@@ -231,11 +246,32 @@ function detectLanguage(text: string): string {
   return 'unknown';
 }
 
+// Update processing stage in queue
+async function updateProcessingStage(supabase: any, sourceId: string, page: number, stage: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('processing_queue')
+      .update({ current_stage: stage })
+      .eq('source_id', sourceId);
+    
+    if (error) {
+      console.log('Note: Could not update processing stage:', error.message);
+    } else {
+      console.log(`Updated processing stage to: ${stage}`);
+    }
+  } catch (error) {
+    console.log('Note: Could not update processing stage:', error);
+  }
+}
+
 // Update database with OCR results
 async function updateDatabase(supabase: any, request: OCRRequest, textResult: TextResult): Promise<void> {
   const { imageUrl, sourceId, page } = request;
   const { text, confidence, language, contentHash } = textResult;
 
+  // Update stage: saving results
+  await updateProcessingStage(supabase, sourceId, page, 'saving');
+  
   console.log('Updating database with OCR results');
 
   // Insert or update kb_chunks table with the extracted text
@@ -267,6 +303,7 @@ async function updateDatabase(supabase: any, request: OCRRequest, textResult: Te
 
     // Generate suggestions if text is substantial
     if (text.length > 50) {
+      await updateProcessingStage(supabase, sourceId, page, 'suggestions');
       await generateSuggestions(supabase, chunkData.id, textResult);
     }
   } else {
@@ -368,7 +405,7 @@ serve(async (req) => {
     console.log('Resolved image URL:', resolvedImageUrl);
 
     // Process image with OpenAI Vision
-    const openaiResult = await processImageWithOpenAI(resolvedImageUrl, openaiApiKey);
+    const openaiResult = await processImageWithOpenAI(resolvedImageUrl, openaiApiKey, supabase, ocrRequest.sourceId, ocrRequest.page);
 
     // Process extracted text
     const textResult = await processExtractedText(openaiResult);
