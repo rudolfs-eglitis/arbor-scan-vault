@@ -40,7 +40,7 @@ serve(async (req) => {
       fullImageUrl = urlData.publicUrl;
     }
 
-    // Helper function to get OAuth token from service account
+    // Helper function to get OAuth token from service account using Google's standard approach
     const getAccessToken = async () => {
       if (!serviceAccountJson) {
         throw new Error('Service account JSON not configured');
@@ -49,16 +49,27 @@ serve(async (req) => {
       try {
         console.log('Parsing service account JSON...');
         const serviceAccount = JSON.parse(serviceAccountJson);
+        
+        // Validate required fields
+        if (!serviceAccount.client_email || !serviceAccount.private_key || !serviceAccount.project_id) {
+          throw new Error('Invalid service account JSON: missing required fields');
+        }
+        
         console.log('Service account parsed successfully:', {
           client_email: serviceAccount.client_email,
           project_id: serviceAccount.project_id,
           private_key_id: serviceAccount.private_key_id,
-          hasPrivateKey: !!serviceAccount.private_key,
-          privateKeyStartsWith: serviceAccount.private_key?.substring(0, 30) + '...'
+          hasPrivateKey: !!serviceAccount.private_key
         });
         
-        // Use the service account to get access token
+        // Create JWT header and payload
         const now = Math.floor(Date.now() / 1000);
+        const header = {
+          alg: 'RS256',
+          typ: 'JWT',
+          kid: serviceAccount.private_key_id
+        };
+        
         const payload = {
           iss: serviceAccount.client_email,
           scope: 'https://www.googleapis.com/auth/cloud-platform',
@@ -67,29 +78,42 @@ serve(async (req) => {
           iat: now
         };
         
-        // For simplicity, we'll use the googleapis node library approach
-        // Convert the service account key format for JWT
-        const header = {
-          alg: 'RS256',
-          typ: 'JWT',
-          kid: serviceAccount.private_key_id
-        };
+        // Encode header and payload
+        const encoder = new TextEncoder();
+        const headerB64 = btoa(JSON.stringify(header))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, '');
+        const payloadB64 = btoa(JSON.stringify(payload))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, '');
         
-        console.log('Preparing private key for JWT signing...');
-        // Prepare the private key - remove the header/footer and newlines
-        let privateKeyContent = serviceAccount.private_key
-          .replace('-----BEGIN PRIVATE KEY-----', '')
-          .replace('-----END PRIVATE KEY-----', '')
+        // Prepare signing input
+        const signingInput = `${headerB64}.${payloadB64}`;
+        
+        // Import private key for signing
+        const privateKeyPem = serviceAccount.private_key;
+        const pemHeader = '-----BEGIN PRIVATE KEY-----';
+        const pemFooter = '-----END PRIVATE KEY-----';
+        
+        if (!privateKeyPem.includes(pemHeader) || !privateKeyPem.includes(pemFooter)) {
+          throw new Error('Invalid private key format');
+        }
+        
+        // Extract the key content between headers
+        const keyContent = privateKeyPem
+          .replace(pemHeader, '')
+          .replace(pemFooter, '')
           .replace(/\s/g, '');
         
-        // Decode base64 to get the raw bytes
-        const privateKeyBytes = Uint8Array.from(atob(privateKeyContent), c => c.charCodeAt(0));
-        console.log('Private key decoded, length:', privateKeyBytes.length);
+        // Convert base64 to ArrayBuffer
+        const keyData = Uint8Array.from(atob(keyContent), c => c.charCodeAt(0));
         
-        // Import the private key for signing
+        // Import the key
         const cryptoKey = await crypto.subtle.importKey(
           'pkcs8',
-          privateKeyBytes,
+          keyData.buffer,
           {
             name: 'RSASSA-PKCS1-v1_5',
             hash: 'SHA-256',
@@ -97,46 +121,48 @@ serve(async (req) => {
           false,
           ['sign']
         );
-        console.log('Private key imported successfully for signing');
         
-        // Create the JWT
-        const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-        const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-        const signatureInput = `${headerB64}.${payloadB64}`;
-        
+        // Sign the input
         const signature = await crypto.subtle.sign(
           'RSASSA-PKCS1-v1_5',
           cryptoKey,
-          new TextEncoder().encode(signatureInput)
+          encoder.encode(signingInput)
         );
         
+        // Encode signature
         const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-          .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=/g, '');
         
+        // Create final JWT
         const jwt = `${headerB64}.${payloadB64}.${signatureB64}`;
-        console.log('JWT created successfully, requesting access token...');
+        
+        console.log('JWT created, requesting access token...');
         
         // Exchange JWT for access token
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
         });
         
         if (!tokenResponse.ok) {
           const errorText = await tokenResponse.text();
-          console.error('Token request error:', errorText);
-          throw new Error(`Token request failed: ${tokenResponse.status} - ${errorText}`);
+          console.error('Token exchange failed:', {
+            status: tokenResponse.status,
+            error: errorText
+          });
+          throw new Error(`OAuth token exchange failed: ${tokenResponse.status}`);
         }
         
         const tokenData = await tokenResponse.json();
-        console.log('Successfully obtained access token');
+        console.log('Access token obtained successfully');
         return tokenData.access_token;
+        
       } catch (error) {
-        console.error('Error getting access token:', error);
-        throw error;
+        console.error('Service account authentication error:', error.message);
+        throw new Error(`Authentication failed: ${error.message}`);
       }
     };
 
