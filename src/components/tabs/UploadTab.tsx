@@ -107,8 +107,24 @@ const UploadTab = () => {
           
           if (error) throw error;
           
-          // Simulate progress (Supabase doesn't provide real progress)
-          // In reality, you'd track this through the upload process
+          // Create kb_images record
+          const { error: imageError } = await supabase
+            .from('kb_images')
+            .insert({
+              source_id: selectedSource,
+              page: globalFileIndex + 1,
+              uri: fileName,
+              caption: `Page ${globalFileIndex + 1}`,
+              meta: {
+                filename: file.name,
+                fileSize: file.size,
+                batch: batchIndex + 1,
+                uploadedAt: new Date().toISOString()
+              }
+            });
+          
+          if (imageError) throw imageError;
+          
           return fileName;
         });
         
