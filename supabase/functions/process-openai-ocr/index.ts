@@ -91,17 +91,13 @@ async function resolveImageUrl(imageUrl: string, supabase: any): Promise<string>
     return imageUrl;
   }
 
-  // Handle relative paths from Supabase storage
-  if (imageUrl.startsWith('kb-images/')) {
-    const { data } = await supabase.storage
-      .from('kb-images')
-      .getPublicUrl(imageUrl.replace('kb-images/', ''));
-    console.log('Resolved storage path to public URL:', data.publicUrl);
-    return data.publicUrl;
-  }
-
-  console.log('Using image URL as-is:', imageUrl);
-  return imageUrl;
+  // Handle relative paths from Supabase storage - assume they're in kb-images bucket
+  const { data } = await supabase.storage
+    .from('kb-images')
+    .getPublicUrl(imageUrl);
+    
+  console.log('Resolved image URL:', data.publicUrl);
+  return data.publicUrl;
 }
 
 // Verify image URL is accessible
