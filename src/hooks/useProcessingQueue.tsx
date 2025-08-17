@@ -713,6 +713,46 @@ export const useProcessingQueue = () => {
         return false;
       }
 
+      // First, clean up any duplicate queue entries for the same source (except the current one)
+      console.log(`[Queue ${queueId}] Cleaning up duplicate queue entries for source: ${queueData.source_id}`);
+      
+      const { data: duplicateQueues, error: duplicatesError } = await supabase
+        .from('processing_queue')
+        .select('id')
+        .eq('source_id', queueData.source_id)
+        .neq('id', queueId);
+
+      if (duplicatesError) {
+        console.warn('Failed to fetch duplicate queues:', duplicatesError);
+      } else if (duplicateQueues && duplicateQueues.length > 0) {
+        console.log(`[Queue ${queueId}] Found ${duplicateQueues.length} duplicate queue entries, cleaning up...`);
+        
+        // Delete queue_pages for duplicate queues first
+        for (const duplicateQueue of duplicateQueues) {
+          const { error: pagesCleanupError } = await supabase
+            .from('queue_pages')
+            .delete()
+            .eq('queue_id', duplicateQueue.id);
+          
+          if (pagesCleanupError) {
+            console.warn(`Failed to cleanup pages for duplicate queue ${duplicateQueue.id}:`, pagesCleanupError);
+          }
+        }
+
+        // Delete duplicate queue entries
+        const { error: queueCleanupError } = await supabase
+          .from('processing_queue')
+          .delete()
+          .eq('source_id', queueData.source_id)
+          .neq('id', queueId);
+
+        if (queueCleanupError) {
+          console.warn('Failed to cleanup duplicate queues:', queueCleanupError);
+        } else {
+          console.log(`[Queue ${queueId}] Successfully cleaned up ${duplicateQueues.length} duplicate queue entries`);
+        }
+      }
+
       // Delete existing chunks for this source (clean slate)
       const { error: chunksError } = await supabase
         .from('kb_chunks')
