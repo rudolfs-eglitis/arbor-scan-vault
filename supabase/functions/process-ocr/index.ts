@@ -7,11 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const ocrApiKey = Deno.env.get('OCR_API_KEY');
-const serviceAccountJson = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON');
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -20,18 +15,34 @@ serve(async (req) => {
 
   try {
     console.log('=== OCR Function Started ===');
+    
+    // Check environment variables with better error handling
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const ocrApiKey = Deno.env.get('OCR_API_KEY');
+    const serviceAccountJson = Deno.env.get('GOOGLE_CLOUD_SERVICE_ACCOUNT_JSON');
+    
+    console.log('Environment variables check:', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseServiceKey: !!supabaseServiceKey, 
+      hasOcrApiKey: !!ocrApiKey,
+      hasServiceAccount: !!serviceAccountJson,
+      allEnvKeys: Object.keys(Deno.env.toObject())
+    });
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required Supabase environment variables');
+    }
+
+    if (!ocrApiKey) {
+      throw new Error('OCR_API_KEY not configured');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { imageUrl, sourceId, page, caption } = await req.json();
     
     console.log('Processing OCR for image:', { sourceId, page, imageUrl });
-    console.log('Environment check:', {
-      hasServiceAccount: !!serviceAccountJson,
-      hasOcrApiKey: !!ocrApiKey,
-      serviceAccountLength: serviceAccountJson ? serviceAccountJson.length : 0,
-      ocrApiKeyValue: ocrApiKey ? `${ocrApiKey.substring(0, 10)}...` : 'NOT_SET',
-      allEnvKeys: Object.keys(Deno.env.toObject()).filter(key => key.includes('OCR') || key.includes('GOOGLE'))
-    });
 
     // Get the storage URL for the image if it's just a path
     let fullImageUrl = imageUrl;
@@ -40,11 +51,6 @@ serve(async (req) => {
         .from('kb-images')
         .getPublicUrl(imageUrl);
       fullImageUrl = urlData.publicUrl;
-    }
-
-    // Use simple API key authentication for Google Cloud Vision API
-    if (!ocrApiKey) {
-      throw new Error('OCR_API_KEY not configured');
     }
 
     console.log('Using API key authentication');
