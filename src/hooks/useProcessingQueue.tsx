@@ -483,6 +483,121 @@ export const useProcessingQueue = () => {
     }
   };
 
+  const processOnlyMissingPages = async (queueId: string) => {
+    try {
+      console.log(`[Queue ${queueId}] Processing only missing pages...`);
+      
+      // Get queue info to find source_id
+      const { data: queueData, error: queueError } = await supabase
+        .from('processing_queue')
+        .select('source_id')
+        .eq('id', queueId)
+        .single();
+
+      if (queueError) throw queueError;
+
+      // Get all pages for this queue
+      const { data: allPages, error: pagesError } = await supabase
+        .from('queue_pages')
+        .select('id, page_number, status')
+        .eq('queue_id', queueId);
+
+      if (pagesError) throw pagesError;
+
+      // Check which pages already have content in kb_chunks
+      const { data: existingChunks, error: chunksError } = await supabase
+        .from('kb_chunks')
+        .select('pages')
+        .eq('source_id', queueData.source_id);
+
+      if (chunksError) throw chunksError;
+
+      // Parse existing page numbers from chunks
+      const processedPages = new Set<number>();
+      existingChunks?.forEach(chunk => {
+        if (chunk.pages) {
+          // Handle both single numbers and ranges like "1-3" or "1,2,3"
+          const pageStr = chunk.pages.toString();
+          const pageMatches = pageStr.match(/\d+/g);
+          pageMatches?.forEach(match => processedPages.add(parseInt(match)));
+        }
+      });
+
+      // Find pages that need processing (pending OR not in kb_chunks)
+      const pagesToProcess = allPages?.filter(page => 
+        page.status === 'pending' || 
+        page.status === 'error' ||
+        !processedPages.has(page.page_number)
+      ) || [];
+
+      if (pagesToProcess.length === 0) {
+        toast({
+          title: 'Nothing to Process',
+          description: 'All pages have already been processed',
+        });
+        return false;
+      }
+
+      console.log(`[Queue ${queueId}] Found ${pagesToProcess.length} pages that need processing`);
+
+      // Reset only the pages that need processing
+      const pageIds = pagesToProcess.map(p => p.id);
+      const { error: resetError } = await supabase
+        .from('queue_pages')
+        .update({ 
+          status: 'pending',
+          error_message: null,
+          processed_at: null,
+          extracted_text: null,
+          ocr_confidence: null
+        })
+        .in('id', pageIds);
+
+      if (resetError) throw resetError;
+
+      // Update queue status to processing
+      const { error: updateError } = await supabase
+        .from('processing_queue')
+        .update({ 
+          status: 'processing',
+          started_at: new Date().toISOString(),
+          completed_at: null,
+          error_message: null,
+          current_page: null,
+          current_file: null,
+          current_stage: 'loading'
+        })
+        .eq('id', queueId);
+
+      if (updateError) throw updateError;
+
+      // Refresh queue items
+      await fetchQueueItems();
+      
+      console.log(`[Queue ${queueId}] Starting processing for ${pagesToProcess.length} missing pages...`);
+      
+      // Start processing
+      setTimeout(() => {
+        processQueueItem(queueId);
+      }, 100);
+      
+      toast({
+        title: 'Processing Missing Pages',
+        description: `Processing ${pagesToProcess.length} pages that need content`,
+      });
+
+      return true;
+    } catch (error) {
+      console.error(`[Queue ${queueId}] Error processing missing pages:`, error);
+      toast({
+        title: 'Error',
+        description: 'Failed to process missing pages',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   const forceRestartQueueProcessing = async (queueId: string) => {
     try {
       console.log(`[Queue ${queueId}] Force restarting processing...`);
@@ -672,9 +787,11 @@ export const useProcessingQueue = () => {
     suggestions,
     loading,
     updateQueueStatus,
+    processQueueItem,
     deleteQueueItem,
     createQueueItem,
     restartQueueProcessing,
+    processOnlyMissingPages,
     forceRestartQueueProcessing,
     checkForPendingQueues,
     retryQueuePages,

@@ -60,7 +60,13 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
   const [pages, setPages] = useState<QueuePage[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { forceRestartQueueProcessing, restartQueueProcessing } = useProcessingQueue();
+  const { 
+    restartQueueProcessing, 
+    processOnlyMissingPages,
+    forceRestartQueueProcessing,
+    retryQueuePages,
+    processQueueItem
+  } = useProcessingQueue();
 
   const fetchPages = async () => {
     if (!queueItem) return;
@@ -117,6 +123,10 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
         variant: 'destructive',
       });
     }
+  };
+
+  const handleProcessMissing = () => {
+    processOnlyMissingPages(queueItem.id);
   };
 
 
@@ -293,11 +303,11 @@ const QueueDetailsModal = ({ open, onOpenChange, queueItem, onRefresh }: QueueDe
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={handleForceRestart}
+                    onClick={handleProcessMissing}
                     className="flex items-center gap-2"
                   >
                     <PlayCircle className="h-3 w-3" />
-                    Process Pending ({pageStats.pending})
+                    Process Missing ({pageStats.pending})
                   </Button>
                 )}
                 {pageStats.pending > 0 && queueItem?.status === 'completed' && (

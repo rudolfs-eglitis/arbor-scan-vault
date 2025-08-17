@@ -155,16 +155,31 @@ async function processImageWithOpenAI(
   // First verify the image is accessible
   await verifyImageUrl(imageUrl);
 
-  const systemPrompt = `You are an expert OCR system. Extract ALL text from the image with high accuracy. 
-  
-  Rules:
-  1. Extract ALL visible text exactly as it appears
-  2. Preserve original formatting, line breaks, and spacing
-  3. Include headers, body text, captions, footnotes - everything
-  4. For tables, preserve structure with appropriate spacing/tabs
-  5. If text is unclear, make your best attempt but note uncertainty
-  6. Return ONLY the extracted text, no commentary or metadata
-  7. If no text is found, return "NO_TEXT_FOUND"`;
+  const systemPrompt = `You are an expert OCR system specializing in extracting content from book pages and documents. Your task is to:
+
+1. Extract ALL visible text from the image, maintaining original formatting and structure
+2. Preserve paragraph breaks, bullet points, and other formatting elements
+3. Include page numbers, headers, footers, and captions if present
+4. Handle multiple languages (primarily Swedish and English)
+5. For unclear or damaged text, make your best interpretation but don't hallucinate content
+6. ALSO identify and describe any figures, images, diagrams, charts, or illustrations
+
+Content extraction format:
+- First extract all text content
+- Then, if there are any figures/images/diagrams, add a section:
+  [FIGURES FOUND]
+  Figure 1: [Brief description of what the figure shows]
+  Figure 2: [Brief description if multiple figures]
+  [END FIGURES]
+
+Important guidelines:
+- Return ONLY the extracted text content and figure descriptions
+- Maintain the original text structure and formatting
+- Do not add explanations, comments, or metadata beyond the figure descriptions
+- If no text is found, return exactly: NO_TEXT_FOUND
+- For mathematical formulas or special characters, represent them as clearly as possible
+- Include any visible table content in a structured format
+- Describe figures briefly but accurately (e.g., "Diagram showing tree root system", "Photo of oak leaf damage")`;
 
   // Prepare request body with better prompt
   const requestBody = {
@@ -179,7 +194,7 @@ async function processImageWithOpenAI(
         content: [
           {
             type: 'text',
-            text: 'Please extract all visible text from this image. Pay attention to both main content and any smaller text, headers, footnotes, or captions.',
+            text: 'Please extract all visible text and identify any figures, diagrams, or illustrations from this image. Pay attention to both main content and any smaller text, headers, footnotes, or captions. Also describe any visual elements like figures, photos, or diagrams using the format specified in the system prompt.',
           },
           {
             type: 'image_url',
