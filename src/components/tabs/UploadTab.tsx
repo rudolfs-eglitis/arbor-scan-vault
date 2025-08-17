@@ -130,6 +130,9 @@ const UploadTab = () => {
     }
   };
 
+  // Progress tracking state
+  const [progressUpdater, setProgressUpdater] = useState<((fileIndex: number, progress: number, status?: 'pending' | 'uploading' | 'completed' | 'error') => void) | null>(null);
+
   const handleAddToQueue = async () => {
     if (!selectedSource || selectedFiles.length === 0) return;
     
@@ -184,16 +187,35 @@ const UploadTab = () => {
           
           console.log(`Processing file ${globalFileIndex + 1}/${selectedFiles.length}: ${file.name}`);
           
+          // Update progress: Start uploading
+          if (progressUpdater) {
+            progressUpdater(globalFileIndex, 0, 'uploading');
+          }
+          
           try {
             // Upload to storage with upsert to handle duplicates
             console.log('Uploading to storage:', fileName);
+            
+            // Simulate upload progress
+            if (progressUpdater) {
+              progressUpdater(globalFileIndex, 25, 'uploading');
+            }
+            
             const { error: storageError } = await supabase.storage
               .from('kb-images')
               .upload(fileName, file, { upsert: true });
             
             if (storageError) {
               console.error('Storage error:', storageError);
+              if (progressUpdater) {
+                progressUpdater(globalFileIndex, 0, 'error');
+              }
               throw new Error(`Storage upload failed for ${file.name}: ${storageError.message}`);
+            }
+            
+            // Update progress: Storage complete, starting database
+            if (progressUpdater) {
+              progressUpdater(globalFileIndex, 75, 'uploading');
             }
             
             console.log('Storage upload successful, inserting database record...');
@@ -224,7 +246,15 @@ const UploadTab = () => {
             
             if (imageError) {
               console.error('Database error:', imageError);
+              if (progressUpdater) {
+                progressUpdater(globalFileIndex, 0, 'error');
+              }
               throw new Error(`Database insert failed for ${file.name}: ${imageError.message}`);
+            }
+            
+            // Update progress: Complete
+            if (progressUpdater) {
+              progressUpdater(globalFileIndex, 100, 'completed');
             }
             
             console.log('Database insert successful:', imageData);
@@ -232,6 +262,9 @@ const UploadTab = () => {
             
           } catch (error) {
             console.error(`Error processing file ${file.name}:`, error);
+            if (progressUpdater) {
+              progressUpdater(globalFileIndex, 0, 'error');
+            }
             throw new Error(`Failed to process ${file.name}: ${error.message}`);
           }
         }
@@ -294,7 +327,7 @@ const UploadTab = () => {
           files={currentFiles}
           onCancel={cancelUpload}
           onProgress={(fileIndex, progress) => {
-            // Handle individual file progress if needed
+            // Progress is handled by the component internally
           }}
           onComplete={completeUpload}
           onError={(error) => {
@@ -305,6 +338,7 @@ const UploadTab = () => {
             });
             cancelUpload();
           }}
+          progressUpdater={setProgressUpdater}
         />
       </div>
     );

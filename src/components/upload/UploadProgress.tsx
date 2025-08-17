@@ -17,6 +17,7 @@ interface UploadProgressProps {
   onProgress: (fileIndex: number, progress: number) => void;
   onComplete: () => void;
   onError: (error: string) => void;
+  progressUpdater?: (updater: (fileIndex: number, progress: number, status?: 'pending' | 'uploading' | 'completed' | 'error') => void) => void;
 }
 
 export const UploadProgress = ({ 
@@ -24,7 +25,8 @@ export const UploadProgress = ({
   onCancel, 
   onProgress, 
   onComplete, 
-  onError 
+  onError,
+  progressUpdater 
 }: UploadProgressProps) => {
   const [fileProgresses, setFileProgresses] = useState<FileProgress[]>([]);
   const [overallProgress, setOverallProgress] = useState(0);
@@ -32,6 +34,28 @@ export const UploadProgress = ({
   const [startTime, setStartTime] = useState<number>(Date.now());
   const [timeRemaining, setTimeRemaining] = useState<string>('Calculating...');
   const [uploadSpeed, setUploadSpeed] = useState<number>(0);
+
+  // Expose the updateFileProgress function to parent via callback
+  const updateFileProgress = (index: number, progress: number, status?: FileProgress['status']) => {
+    setFileProgresses(prev => prev.map((file, i) => 
+      i === index 
+        ? { ...file, progress, status: status || file.status }
+        : file
+    ));
+    
+    onProgress(index, progress);
+    
+    if (progress === 100 && status === 'completed') {
+      setCurrentFileIndex(prev => prev + 1);
+    }
+  };
+
+  // Provide the update function to parent component
+  useEffect(() => {
+    if (progressUpdater) {
+      progressUpdater(updateFileProgress);
+    }
+  }, [progressUpdater]);
 
   useEffect(() => {
     // Initialize file progress states
@@ -79,20 +103,6 @@ export const UploadProgress = ({
       onComplete();
     }
   }, [fileProgresses, startTime, files, onComplete]);
-
-  const updateFileProgress = (index: number, progress: number, status?: FileProgress['status']) => {
-    setFileProgresses(prev => prev.map((file, i) => 
-      i === index 
-        ? { ...file, progress, status: status || file.status }
-        : file
-    ));
-    
-    onProgress(index, progress);
-    
-    if (progress === 100 && status === 'completed') {
-      setCurrentFileIndex(prev => prev + 1);
-    }
-  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
