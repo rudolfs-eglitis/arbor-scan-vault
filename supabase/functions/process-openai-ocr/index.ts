@@ -216,7 +216,19 @@ Remember: This is Phase 1 (Raw Extraction) - preserve everything as-is without i
         },
         {
           role: 'user',
-          content: `Extract all text and identify all figures from this image. Preserve original formatting and language:\n\n[Image provided]`
+          content: [
+            {
+              type: 'text',
+              text: 'Extract all text and identify all figures from this image. Preserve original formatting and language:'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageUrl,
+                detail: 'high'
+              }
+            }
+          ]
         }
       ],
       max_completion_tokens: 4000,
