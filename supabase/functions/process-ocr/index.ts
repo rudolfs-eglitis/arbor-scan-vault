@@ -58,59 +58,37 @@ function validateEnvironment(): EnvironmentConfig {
     throw new ValidationError('Missing required Supabase environment variables', envStatus);
   }
   
-  if (!ocrApiKey && !serviceAccountJson) {
-    throw new AuthenticationError('No Google Cloud authentication method available', envStatus);
+  if (!ocrApiKey) {
+    throw new AuthenticationError('OCR_API_KEY is required for authentication', envStatus);
   }
   
   console.log('✅ Environment validation completed successfully');
   return { supabaseUrl, supabaseServiceKey, ocrApiKey, serviceAccountJson };
 }
 
-// Phase 2: Authentication strategy with fallback
+// Phase 2: Simplified API key authentication
 interface AuthMethod {
-  type: 'api_key' | 'service_account';
+  type: 'api_key';
   headers: Record<string, string>;
   baseUrl: string;
 }
 
-async function setupGoogleAuthentication(config: EnvironmentConfig): Promise<AuthMethod> {
+function setupGoogleAuthentication(config: EnvironmentConfig): AuthMethod {
   const startTime = Date.now();
   console.log('🔐 Setting up Google Cloud authentication...');
   
-  // Primary: Try service account if available
-  if (config.serviceAccountJson) {
-    try {
-      console.log('Attempting service account authentication...');
-      const serviceAccount = JSON.parse(config.serviceAccountJson);
-      
-      // Validate service account structure
-      if (!serviceAccount.client_email || !serviceAccount.private_key) {
-        throw new Error('Invalid service account JSON structure');
-      }
-      
-      console.log(`✅ Service account authentication setup completed (${Date.now() - startTime}ms)`);
-      return {
-        type: 'service_account',
-        headers: { 'Content-Type': 'application/json' },
-        baseUrl: 'https://vision.googleapis.com/v1/images:annotate'
-      };
-    } catch (error) {
-      console.warn('⚠️  Service account authentication failed, falling back to API key:', error.message);
-    }
+  if (!config.ocrApiKey) {
+    throw new AuthenticationError('OCR_API_KEY is required for authentication');
   }
   
-  // Fallback: Use API key
-  if (config.ocrApiKey) {
-    console.log('Using API key authentication (fallback)');
-    console.log(`✅ API key authentication setup completed (${Date.now() - startTime}ms)`);
-    return {
-      type: 'api_key',
-      headers: { 'Content-Type': 'application/json' },
-      baseUrl: `https://vision.googleapis.com/v1/images:annotate?key=${config.ocrApiKey}`
-    };
-  }
+  console.log('Using API key authentication');
+  console.log(`✅ API key authentication setup completed (${Date.now() - startTime}ms)`);
   
-  throw new AuthenticationError('No valid authentication method available');
+  return {
+    type: 'api_key',
+    headers: { 'Content-Type': 'application/json' },
+    baseUrl: `https://vision.googleapis.com/v1/images:annotate?key=${config.ocrApiKey}`
+  };
 }
 
 // Phase 3: Input validation
@@ -299,10 +277,14 @@ async function updateDatabase(
       .eq('source_id', request.sourceId)
       .eq('page', request.page)
       .select()
-      .single();
+      .maybeSingle();
     
     if (imageError) {
       throw new OCRError('Failed to update image record', 'DB_UPDATE_ERROR', imageError);
+    }
+    
+    if (!imageData) {
+      throw new OCRError('No image record found to update', 'IMAGE_NOT_FOUND', { sourceId: request.sourceId, page: request.page });
     }
     
     console.log('✅ Image record updated:', imageData.id);
@@ -327,7 +309,7 @@ async function updateDatabase(
         }
       })
       .select()
-      .single();
+      .maybeSingle();
     
     if (chunkError) {
       console.warn('⚠️  Failed to create chunk record:', chunkError);
@@ -391,7 +373,7 @@ async function handleHealthCheck(): Promise<Response> {
   
   try {
     const config = validateEnvironment();
-    const authMethod = await setupGoogleAuthentication(config);
+    const authMethod = setupGoogleAuthentication(config);
     
     return new Response(
       JSON.stringify({
@@ -442,7 +424,7 @@ serve(async (req) => {
     const config = validateEnvironment();
     
     // Phase 2: Setup authentication
-    const authMethod = await setupGoogleAuthentication(config);
+    const authMethod = setupGoogleAuthentication(config);
     
     // Phase 3: Validate input
     const requestBody = await req.json();
