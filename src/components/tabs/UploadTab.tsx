@@ -7,15 +7,21 @@ import { Upload, Image, X, FolderOpen, Settings, Play } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
+import { useProcessingQueue } from '@/hooks/useProcessingQueue';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const UploadTab = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [selectedSource, setSelectedSource] = useState('');
   const [batchSize, setBatchSize] = useState('30');
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const { sources } = useKnowledgeBase();
+  const { createQueueItem } = useProcessingQueue();
+  const { toast } = useToast();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -59,6 +65,58 @@ const UploadTab = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleAddToQueue = async () => {
+    if (!selectedSource || selectedFiles.length === 0) return;
+    
+    setUploading(true);
+    try {
+      const batchSizeNum = parseInt(batchSize);
+      const totalBatches = Math.ceil(selectedFiles.length / batchSizeNum);
+      
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const startIndex = batchIndex * batchSizeNum;
+        const endIndex = Math.min(startIndex + batchSizeNum, selectedFiles.length);
+        const batchFiles = selectedFiles.slice(startIndex, endIndex);
+        
+        // Upload files to storage
+        const uploadPromises = batchFiles.map(async (file, fileIndex) => {
+          const fileName = `${selectedSource}/batch-${batchIndex + 1}/page-${startIndex + fileIndex + 1}-${file.name}`;
+          const { error } = await supabase.storage
+            .from('kb-images')
+            .upload(fileName, file);
+          
+          if (error) throw error;
+          return fileName;
+        });
+        
+        await Promise.all(uploadPromises);
+        
+        // Create queue item for this batch
+        const batchName = `Batch ${batchIndex + 1} of ${totalBatches}`;
+        await createQueueItem(selectedSource, batchName, batchFiles.length);
+      }
+      
+      toast({
+        title: 'Success',
+        description: `Added ${selectedFiles.length} files to queue in ${totalBatches} batches`,
+      });
+      
+      // Clear files after successful upload
+      setSelectedFiles([]);
+      setSelectedSource('');
+      
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to upload files to queue',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -233,10 +291,11 @@ const UploadTab = () => {
             <div className="flex gap-4">
               <Button 
                 className="bg-gradient-primary hover:bg-primary-hover shadow-primary"
-                disabled={!selectedSource || selectedFiles.length === 0}
+                disabled={!selectedSource || selectedFiles.length === 0 || uploading}
+                onClick={handleAddToQueue}
               >
                 <Play className="h-4 w-4 mr-2" />
-                Add to Queue
+                {uploading ? 'Uploading...' : 'Add to Queue'}
               </Button>
               <Button variant="outline">
                 Preview Batches
