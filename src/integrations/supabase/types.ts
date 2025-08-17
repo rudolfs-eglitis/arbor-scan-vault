@@ -853,10 +853,12 @@ export type Database = {
           created_at: string
           current_file: string | null
           current_page: number | null
+          current_stage: string | null
           error_message: string | null
           estimated_completion: string | null
           id: string
           processed_pages: number
+          processing_speed: number | null
           progress_percentage: number
           source_id: string
           started_at: string | null
@@ -870,10 +872,12 @@ export type Database = {
           created_at?: string
           current_file?: string | null
           current_page?: number | null
+          current_stage?: string | null
           error_message?: string | null
           estimated_completion?: string | null
           id?: string
           processed_pages?: number
+          processing_speed?: number | null
           progress_percentage?: number
           source_id: string
           started_at?: string | null
@@ -887,10 +891,12 @@ export type Database = {
           created_at?: string
           current_file?: string | null
           current_page?: number | null
+          current_stage?: string | null
           error_message?: string | null
           estimated_completion?: string | null
           id?: string
           processed_pages?: number
+          processing_speed?: number | null
           progress_percentage?: number
           source_id?: string
           started_at?: string | null
