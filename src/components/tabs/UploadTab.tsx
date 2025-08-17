@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useKnowledgeBase } from '@/hooks/useKnowledgeBase';
 import { useProcessingQueue } from '@/hooks/useProcessingQueue';
+import { useOrphanedRecords } from '@/hooks/useOrphanedRecords';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { UploadProgress, useUploadProgress } from '@/components/upload/UploadProgress';
@@ -24,6 +25,7 @@ const UploadTab = () => {
   
   const { sources } = useKnowledgeBase();
   const { createQueueItem } = useProcessingQueue();
+  const { cleanupOrphanedRecords, isLoading: isCleaningUp } = useOrphanedRecords();
   const { toast } = useToast();
   const { isUploading, currentFiles, startUpload, cancelUpload, completeUpload } = useUploadProgress();
 
@@ -114,6 +116,18 @@ const UploadTab = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const handleCleanupOrphaned = async () => {
+    try {
+      await cleanupOrphanedRecords();
+      // Refresh the existing pages check
+      if (selectedSource) {
+        await checkExistingPages(selectedSource);
+      }
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+    }
   };
 
   const handleAddToQueue = async () => {
@@ -308,7 +322,7 @@ const UploadTab = () => {
       <Alert>
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
-          <strong>File Limits:</strong> Maximum 50MB per file. For Galaxy S24 photos (~5MB each), 
+          <strong>File Limits:</strong> Maximum 50MB per file (Supabase Free Plan limit). For Galaxy S24 photos (~5MB each), 
           we recommend uploading <strong>10-20 images at once</strong> for optimal performance. 
           Total batch size should stay under 200MB.
         </AlertDescription>
@@ -372,6 +386,38 @@ const UploadTab = () => {
           <AlertDescription className="text-yellow-800 dark:text-yellow-200">
             <strong>Duplicate Files Detected:</strong> {duplicateFiles.size} files will replace existing pages ({Array.from(duplicateFiles).map(i => i + 1).join(', ')}). 
             Uploading will overwrite the existing images and their OCR data.
+            <div className="mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleCleanupOrphaned}
+                disabled={isCleaningUp}
+                className="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border-yellow-300"
+              >
+                {isCleaningUp ? 'Cleaning...' : 'Clean Up Orphaned Files'}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Cleanup Tool */}
+      {existingPages.length > 0 && !showDuplicateWarning && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Database Cleanup:</strong> Found {existingPages.length} existing pages. 
+            If you've deleted queue items but files remain, use this cleanup tool.
+            <div className="mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleCleanupOrphaned}
+                disabled={isCleaningUp}
+              >
+                {isCleaningUp ? 'Cleaning...' : 'Clean Up Orphaned Files'}
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
