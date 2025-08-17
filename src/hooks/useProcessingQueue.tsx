@@ -10,6 +10,8 @@ interface QueueItem {
   total_pages: number;
   processed_pages: number;
   progress_percentage: number;
+  current_page?: number;
+  current_file?: string;
   error_message?: string;
   started_at?: string;
   completed_at?: string;
@@ -166,6 +168,16 @@ export const useProcessingQueue = () => {
             continue;
           }
 
+          // Update queue to show current processing file
+          const fileName = image.uri ? image.uri.split('/').pop() || `Page ${page.page_number}` : `Page ${page.page_number}`;
+          await supabase
+            .from('processing_queue')
+            .update({ 
+              current_page: page.page_number,
+              current_file: fileName
+            })
+            .eq('id', queueId);
+
           // Update page status to processing
           await supabase
             .from('queue_pages')
@@ -234,7 +246,9 @@ export const useProcessingQueue = () => {
           .from('processing_queue')
           .update({ 
             status: 'completed',
-            completed_at: new Date().toISOString()
+            completed_at: new Date().toISOString(),
+            current_page: null,
+            current_file: null
           })
           .eq('id', queueId);
 

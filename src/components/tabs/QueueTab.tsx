@@ -216,6 +216,12 @@ const QueueTab = () => {
                   <span>{item.processed_pages}/{item.total_pages} pages • {item.progress_percentage}%</span>
                 </div>
                 <Progress value={item.progress_percentage} className="h-2" />
+                {item.status === 'processing' && item.current_file && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                    Processing: {item.current_file} (Page {item.current_page})
+                  </div>
+                )}
               </div>
 
               {/* Details */}
