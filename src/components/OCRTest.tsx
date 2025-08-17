@@ -20,50 +20,90 @@ export const OCRTest: React.FC = () => {
   const [result, setResult] = useState<OCRTestResult | null>(null);
   const { toast } = useToast();
 
+  const findTestImage = async (): Promise<string | null> => {
+    // First check root level for image files
+    const { data: rootFiles, error: rootError } = await supabase.storage
+      .from('kb-images')
+      .list('', { limit: 100 });
+
+    if (rootError) {
+      throw new Error(`Storage error: ${rootError.message}`);
+    }
+
+    if (!rootFiles || rootFiles.length === 0) {
+      throw new Error('No files found in storage.');
+    }
+
+    // Look for actual image files in root
+    const rootImage = rootFiles.find(file => 
+      file.name && 
+      file.metadata && 
+      file.metadata.mimetype?.startsWith('image/')
+    );
+
+    if (rootImage) {
+      const { data: urlData } = await supabase.storage
+        .from('kb-images')
+        .getPublicUrl(rootImage.name);
+      return urlData.publicUrl;
+    }
+
+    // If no images in root, check subdirectories
+    for (const item of rootFiles) {
+      if (item.name && !item.metadata) { // This is likely a directory
+        const { data: subFiles, error: subError } = await supabase.storage
+          .from('kb-images')
+          .list(item.name, { limit: 100 });
+        
+        if (!subError && subFiles) {
+          const subImage = subFiles.find(file => 
+            file.name && 
+            file.metadata && 
+            file.metadata.mimetype?.startsWith('image/')
+          );
+          
+          if (subImage) {
+            const { data: urlData } = await supabase.storage
+              .from('kb-images')
+              .getPublicUrl(`${item.name}/${subImage.name}`);
+            return urlData.publicUrl;
+          }
+        }
+      }
+    }
+
+    return null;
+  };
+
   const testOCRFunction = async () => {
     setTesting(true);
     setResult(null);
 
     try {
-      // First check if we have any images in storage to test with
-      const { data: files, error: listError } = await supabase.storage
-        .from('kb-images')
-        .list('', { limit: 10 });
-
-      if (listError) {
-        throw new Error(`Storage error: ${listError.message}`);
+      const testImageUrl = await findTestImage();
+      
+      if (!testImageUrl) {
+        throw new Error('No image files found in storage. Please upload an image first to test OCR functionality.');
       }
 
-      if (!files || files.length === 0) {
-        throw new Error('No images found in storage. Please upload an image first to test OCR functionality.');
-      }
-
-      // Use the first available image for testing
-      const testImage = files[0];
-      const { data: urlData } = await supabase.storage
-        .from('kb-images')
-        .getPublicUrl(testImage.name);
-
-      if (!urlData?.publicUrl) {
-        throw new Error('Failed to get image URL');
-      }
-
-      console.log('Testing OpenAI Vision OCR with image:', urlData.publicUrl);
+      console.log('Testing OpenAI Vision OCR with image:', testImageUrl);
 
       // Call the OpenAI OCR edge function
       const { data, error } = await supabase.functions.invoke('process-openai-ocr', {
         body: {
-          imageUrl: urlData.publicUrl,
+          imageUrl: testImageUrl,
           sourceId: 'test-source',
           page: 1
         }
       });
 
       if (error) {
+        console.error('Edge function invocation error:', error);
         throw new Error(`Edge function error: ${error.message}`);
       }
 
       if (!data?.success) {
+        console.error('OCR processing failed:', data);
         throw new Error(data?.error?.message || 'OpenAI OCR processing failed');
       }
 

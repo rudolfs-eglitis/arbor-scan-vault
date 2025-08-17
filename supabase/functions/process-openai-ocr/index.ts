@@ -84,7 +84,10 @@ function validateInput(input: any): OCRRequest {
 
 // Resolve image URL to public URL if needed
 async function resolveImageUrl(imageUrl: string, supabase: any): Promise<string> {
+  console.log('Resolving image URL:', imageUrl);
+  
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    console.log('Image URL is already public:', imageUrl);
     return imageUrl;
   }
 
@@ -93,9 +96,11 @@ async function resolveImageUrl(imageUrl: string, supabase: any): Promise<string>
     const { data } = await supabase.storage
       .from('kb-images')
       .getPublicUrl(imageUrl.replace('kb-images/', ''));
+    console.log('Resolved storage path to public URL:', data.publicUrl);
     return data.publicUrl;
   }
 
+  console.log('Using image URL as-is:', imageUrl);
   return imageUrl;
 }
 
