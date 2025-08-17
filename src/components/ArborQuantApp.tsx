@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, FileText, Clock, CheckCircle, TreePine, BookOpen, FileCheck, List } from 'lucide-react';
 import { ProtectedRoute } from './ProtectedRoute';
 import { UserProfile } from './UserProfile';
-import SourcesTab from './tabs/SourcesTab';
+import { SourcesTab } from './tabs/SourcesTab';
 import UploadTab from './tabs/UploadTab';
 import QueueTab from './tabs/QueueTab';
 import ReviewTab from './tabs/ReviewTab';
