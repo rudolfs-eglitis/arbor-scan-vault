@@ -25,10 +25,24 @@ export const OCRTest: React.FC = () => {
     setResult(null);
 
     try {
-      // Get public URL for a test image
+      // First check if we have any images in storage to test with
+      const { data: files, error: listError } = await supabase.storage
+        .from('kb-images')
+        .list('', { limit: 10 });
+
+      if (listError) {
+        throw new Error(`Storage error: ${listError.message}`);
+      }
+
+      if (!files || files.length === 0) {
+        throw new Error('No images found in storage. Please upload an image first to test OCR functionality.');
+      }
+
+      // Use the first available image for testing
+      const testImage = files[0];
       const { data: urlData } = await supabase.storage
         .from('kb-images')
-        .getPublicUrl('book.en.schmidt.2006/page-001.jpg');
+        .getPublicUrl(testImage.name);
 
       if (!urlData?.publicUrl) {
         throw new Error('Failed to get image URL');
@@ -97,10 +111,8 @@ export const OCRTest: React.FC = () => {
         <CardContent className="space-y-4">
           <div>
             <p className="text-sm text-muted-foreground mb-4">
-              This will test OpenAI Vision OCR processing on:<br />
-              <code className="text-xs bg-muted px-2 py-1 rounded">
-                book.en.schmidt.2006/page-001.jpg
-              </code>
+              This will test OpenAI Vision OCR processing on any available image in your storage.
+              Upload an image first if no test images are available.
             </p>
             
         <Button 

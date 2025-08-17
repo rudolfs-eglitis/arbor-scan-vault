@@ -99,9 +99,28 @@ async function resolveImageUrl(imageUrl: string, supabase: any): Promise<string>
   return imageUrl;
 }
 
+// Verify image URL is accessible
+async function verifyImageUrl(imageUrl: string): Promise<void> {
+  try {
+    console.log('Verifying image accessibility:', imageUrl);
+    const response = await fetch(imageUrl, { method: 'HEAD' });
+    if (!response.ok) {
+      throw new OCRError(`Image not accessible: ${response.status} - ${response.statusText}`, 404);
+    }
+    console.log('Image verification successful');
+  } catch (error) {
+    console.error('Image verification failed:', error);
+    if (error instanceof OCRError) throw error;
+    throw new OCRError(`Failed to verify image: ${error.message}`, 404);
+  }
+}
+
 // Process image with OpenAI Vision
 async function processImageWithOpenAI(imageUrl: string, openaiApiKey: string): Promise<any> {
   console.log('Processing image with OpenAI Vision:', imageUrl);
+
+  // First verify the image is accessible
+  await verifyImageUrl(imageUrl);
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
