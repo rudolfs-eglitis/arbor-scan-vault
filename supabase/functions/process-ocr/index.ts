@@ -19,11 +19,17 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== OCR Function Started ===');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-        const { imageUrl, sourceId, page, caption } = await req.json();
+    const { imageUrl, sourceId, page, caption } = await req.json();
     
     console.log('Processing OCR for image:', { sourceId, page, imageUrl });
+    console.log('Environment check:', {
+      hasServiceAccount: !!serviceAccountJson,
+      hasOcrApiKey: !!ocrApiKey,
+      serviceAccountLength: serviceAccountJson ? serviceAccountJson.length : 0
+    });
 
     // Get the storage URL for the image if it's just a path
     let fullImageUrl = imageUrl;
@@ -41,7 +47,15 @@ serve(async (req) => {
       }
       
       try {
+        console.log('Parsing service account JSON...');
         const serviceAccount = JSON.parse(serviceAccountJson);
+        console.log('Service account parsed successfully:', {
+          client_email: serviceAccount.client_email,
+          project_id: serviceAccount.project_id,
+          private_key_id: serviceAccount.private_key_id,
+          hasPrivateKey: !!serviceAccount.private_key,
+          privateKeyStartsWith: serviceAccount.private_key?.substring(0, 30) + '...'
+        });
         
         // Use the service account to get access token
         const now = Math.floor(Date.now() / 1000);
@@ -61,6 +75,7 @@ serve(async (req) => {
           kid: serviceAccount.private_key_id
         };
         
+        console.log('Preparing private key for JWT signing...');
         // Prepare the private key - remove the header/footer and newlines
         let privateKeyContent = serviceAccount.private_key
           .replace('-----BEGIN PRIVATE KEY-----', '')
@@ -69,6 +84,7 @@ serve(async (req) => {
         
         // Decode base64 to get the raw bytes
         const privateKeyBytes = Uint8Array.from(atob(privateKeyContent), c => c.charCodeAt(0));
+        console.log('Private key decoded, length:', privateKeyBytes.length);
         
         // Import the private key for signing
         const cryptoKey = await crypto.subtle.importKey(
@@ -81,6 +97,7 @@ serve(async (req) => {
           false,
           ['sign']
         );
+        console.log('Private key imported successfully for signing');
         
         // Create the JWT
         const headerB64 = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -97,6 +114,7 @@ serve(async (req) => {
           .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
         
         const jwt = `${headerB64}.${payloadB64}.${signatureB64}`;
+        console.log('JWT created successfully, requesting access token...');
         
         // Exchange JWT for access token
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -173,19 +191,45 @@ serve(async (req) => {
       ]
     };
 
+    console.log('Making Vision API request to:', visionApiUrl);
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+    console.log('Full image URL being processed:', fullImageUrl);
+
     const ocrResponse = await fetch(visionApiUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestBody),
     });
 
+    console.log('Vision API response status:', ocrResponse.status);
     const ocrResult = await ocrResponse.json();
-    console.log('Google Vision API Result:', ocrResult);
+    console.log('Google Vision API Result:', JSON.stringify(ocrResult, null, 2));
+
+    if (!ocrResponse.ok) {
+      console.error('Vision API request failed:', ocrResponse.status, ocrResult);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Vision API request failed: ${ocrResponse.status}`,
+          details: ocrResult.error?.message || 'Unknown API error'
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
     if (ocrResult.responses && ocrResult.responses[0] && ocrResult.responses[0].textAnnotations) {
       const textAnnotations = ocrResult.responses[0].textAnnotations;
       const parsedText = textAnnotations[0]?.description || '';
       const confidence = textAnnotations[0]?.confidence || 0.8;
+
+      console.log('OCR extraction successful:', {
+        textLength: parsedText.length,
+        confidence: confidence,
+        textPreview: parsedText.substring(0, 100) + (parsedText.length > 100 ? '...' : '')
+      });
 
       // Generate content hash for deduplication
       const encoder = new TextEncoder();
@@ -194,6 +238,7 @@ serve(async (req) => {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const contentSha256 = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
+      console.log('Updating kb_images table with OCR results...');
       // Update existing kb_images record with OCR results
       const { data: imageData, error: imageError } = await supabase
         .from('kb_images')
@@ -215,6 +260,7 @@ serve(async (req) => {
         console.error('Error updating image:', imageError);
         throw imageError;
       }
+      console.log('kb_images updated successfully:', imageData?.id);
 
       // Detect language (simple heuristic)
       const detectLanguage = (text: string): string => {
@@ -229,7 +275,9 @@ serve(async (req) => {
       };
 
       const detectedLang = detectLanguage(parsedText);
+      console.log('Language detected:', detectedLang);
 
+      console.log('Inserting into kb_chunks table...');
       // Insert into kb_chunks
       const { data: chunkData, error: chunkError } = await supabase
         .from('kb_chunks')
@@ -256,11 +304,14 @@ serve(async (req) => {
       if (chunkError) {
         console.error('Error inserting chunk:', chunkError);
         // Don't throw here, image was already saved
+      } else {
+        console.log('kb_chunks record created successfully:', chunkData?.id);
       }
 
       // Generate AI suggestions for the extracted content
       if (chunkData?.id && parsedText.trim().length > 50) {
         try {
+          console.log('Creating page suggestion...');
           // Create suggestion for species identification
           const speciesSuggestion = {
             page_id: chunkData.id,
@@ -282,10 +333,14 @@ serve(async (req) => {
 
           if (suggestionError) {
             console.error('Error creating suggestion:', suggestionError);
+          } else {
+            console.log('Page suggestion created successfully');
           }
         } catch (suggestionErr) {
           console.error('Error in suggestion generation:', suggestionErr);
         }
+      } else {
+        console.log('Skipping page suggestion (text too short or no chunk created)');
       }
 
       return new Response(

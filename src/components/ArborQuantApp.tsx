@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FileText, Clock, CheckCircle, TreePine, BookOpen, FileCheck, List, Users, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, Clock, CheckCircle, TreePine, BookOpen, FileCheck, List, Users, AlertTriangle, Settings } from 'lucide-react';
 import { ProtectedRoute } from './ProtectedRoute';
 import { UserProfile } from './UserProfile';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +13,7 @@ import UploadTab from './tabs/UploadTab';
 import QueueTab from './tabs/QueueTab';
 import ReviewTab from './tabs/ReviewTab';
 import { UsersTab } from './tabs/UsersTab';
+import { OCRTest } from './OCRTest';
 
 const ArborQuantApp = () => {
   const [activeTab, setActiveTab] = useState('sources');
@@ -68,7 +69,7 @@ const ArborQuantApp = () => {
         ) : (
           <>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" defaultValue={defaultTab}>
-              <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : canManageKnowledgeBase ? 'grid-cols-4' : 'grid-cols-2'}`}>
+              <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-6' : canManageKnowledgeBase ? 'grid-cols-4' : 'grid-cols-2'}`}>
                 {canManageKnowledgeBase && (
                   <TabsTrigger value="sources" className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4" />
@@ -95,6 +96,12 @@ const ArborQuantApp = () => {
                   <TabsTrigger value="users" className="flex items-center gap-2">
                     <Users className="h-4 w-4" />
                     Users
+                  </TabsTrigger>
+                )}
+                {isAdmin && (
+                  <TabsTrigger value="test" className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Test OCR
                   </TabsTrigger>
                 )}
               </TabsList>
@@ -124,6 +131,12 @@ const ArborQuantApp = () => {
               {isAdmin && (
                 <TabsContent value="users" className="mt-6">
                   <UsersTab />
+                </TabsContent>
+              )}
+
+              {isAdmin && (
+                <TabsContent value="test" className="mt-6">
+                  <OCRTest />
                 </TabsContent>
               )}
             </Tabs>
