@@ -86,6 +86,8 @@ export const useProcessingQueue = () => {
       
       if (status === 'processing') {
         updates.started_at = new Date().toISOString();
+        // Start actual processing
+        processQueueItem(id);
       } else if (status === 'completed') {
         updates.completed_at = new Date().toISOString();
       }
@@ -107,6 +109,154 @@ export const useProcessingQueue = () => {
       toast({
         title: 'Error',
         description: 'Failed to update queue status',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const processQueueItem = async (queueId: string) => {
+    try {
+      // Get queue item details
+      const { data: queueItem, error: queueError } = await supabase
+        .from('processing_queue')
+        .select('*, kb_sources(*)')
+        .eq('id', queueId)
+        .single();
+
+      if (queueError) throw queueError;
+
+      // Get all pending pages for this queue
+      const { data: pages, error: pagesError } = await supabase
+        .from('queue_pages')
+        .select('*')
+        .eq('queue_id', queueId)
+        .eq('status', 'pending')
+        .order('page_number');
+
+      if (pagesError) throw pagesError;
+
+      if (!pages || pages.length === 0) {
+        // No pages to process, mark as completed
+        await supabase
+          .from('processing_queue')
+          .update({ 
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', queueId);
+        return;
+      }
+
+      // Get images from storage for this source
+      const { data: images, error: imagesError } = await supabase
+        .from('kb_images')
+        .select('*')
+        .eq('source_id', queueItem.source_id)
+        .order('page');
+
+      if (imagesError) throw imagesError;
+
+      // Process each page
+      for (const page of pages) {
+        try {
+          // Find corresponding image
+          const image = images?.find(img => img.page === page.page_number);
+          if (!image) {
+            console.warn(`No image found for page ${page.page_number}`);
+            continue;
+          }
+
+          // Update page status to processing
+          await supabase
+            .from('queue_pages')
+            .update({ status: 'processing' })
+            .eq('id', page.id);
+
+          // Call OCR function
+          const { data: ocrResult, error: ocrError } = await supabase.functions.invoke('process-ocr', {
+            body: {
+              imageUrl: image.uri,
+              sourceId: queueItem.source_id,
+              page: page.page_number,
+              caption: image.caption
+            }
+          });
+
+          if (ocrError) {
+            console.error('OCR Error:', ocrError);
+            await supabase
+              .from('queue_pages')
+              .update({ 
+                status: 'error',
+                error_message: ocrError.message,
+                processed_at: new Date().toISOString()
+              })
+              .eq('id', page.id);
+            continue;
+          }
+
+          // Update page as completed
+          await supabase
+            .from('queue_pages')
+            .update({ 
+              status: 'completed',
+              processed_at: new Date().toISOString(),
+              extracted_text: ocrResult.extractedText,
+              ocr_confidence: ocrResult.confidence
+            })
+            .eq('id', page.id);
+
+          console.log(`Processed page ${page.page_number} successfully`);
+
+        } catch (pageError) {
+          console.error(`Error processing page ${page.page_number}:`, pageError);
+          await supabase
+            .from('queue_pages')
+            .update({ 
+              status: 'error',
+              error_message: pageError.message,
+              processed_at: new Date().toISOString()
+            })
+            .eq('id', page.id);
+        }
+      }
+
+      // Check if all pages are done
+      const { data: remainingPages } = await supabase
+        .from('queue_pages')
+        .select('id')
+        .eq('queue_id', queueId)
+        .eq('status', 'pending');
+
+      if (!remainingPages || remainingPages.length === 0) {
+        // All pages processed, mark queue as completed
+        await supabase
+          .from('processing_queue')
+          .update({ 
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', queueId);
+
+        toast({
+          title: 'Processing Complete',
+          description: `Successfully processed ${queueItem.batch_name}`,
+        });
+      }
+
+    } catch (error) {
+      console.error('Error processing queue item:', error);
+      await supabase
+        .from('processing_queue')
+        .update({ 
+          status: 'error',
+          error_message: error.message
+        })
+        .eq('id', queueId);
+
+      toast({
+        title: 'Processing Failed',
+        description: error.message,
         variant: 'destructive',
       });
     }
