@@ -68,6 +68,107 @@ export type Database = {
           },
         ]
       }
+      assessment_views: {
+        Row: {
+          configuration: Json | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          methodology: string
+          name: string
+        }
+        Insert: {
+          configuration?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          methodology: string
+          name: string
+        }
+        Update: {
+          configuration?: Json | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          methodology?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      assessments: {
+        Row: {
+          assessment_date: string
+          assessment_method: string | null
+          assessor_id: string | null
+          consequence_rating: Database["public"]["Enums"]["risk_rating"] | null
+          created_at: string | null
+          follow_up_date: string | null
+          id: string
+          notes: string | null
+          overall_condition: string | null
+          probability_of_failure:
+            | Database["public"]["Enums"]["risk_rating"]
+            | null
+          recommendations: string | null
+          risk_rating: Database["public"]["Enums"]["risk_rating"] | null
+          status: Database["public"]["Enums"]["assessment_status"] | null
+          tree_id: string | null
+          updated_at: string | null
+          weather_conditions: string | null
+        }
+        Insert: {
+          assessment_date?: string
+          assessment_method?: string | null
+          assessor_id?: string | null
+          consequence_rating?: Database["public"]["Enums"]["risk_rating"] | null
+          created_at?: string | null
+          follow_up_date?: string | null
+          id?: string
+          notes?: string | null
+          overall_condition?: string | null
+          probability_of_failure?:
+            | Database["public"]["Enums"]["risk_rating"]
+            | null
+          recommendations?: string | null
+          risk_rating?: Database["public"]["Enums"]["risk_rating"] | null
+          status?: Database["public"]["Enums"]["assessment_status"] | null
+          tree_id?: string | null
+          updated_at?: string | null
+          weather_conditions?: string | null
+        }
+        Update: {
+          assessment_date?: string
+          assessment_method?: string | null
+          assessor_id?: string | null
+          consequence_rating?: Database["public"]["Enums"]["risk_rating"] | null
+          created_at?: string | null
+          follow_up_date?: string | null
+          id?: string
+          notes?: string | null
+          overall_condition?: string | null
+          probability_of_failure?:
+            | Database["public"]["Enums"]["risk_rating"]
+            | null
+          recommendations?: string | null
+          risk_rating?: Database["public"]["Enums"]["risk_rating"] | null
+          status?: Database["public"]["Enums"]["assessment_status"] | null
+          tree_id?: string | null
+          updated_at?: string | null
+          weather_conditions?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessments_tree_id_fkey"
+            columns: ["tree_id"]
+            isOneToOne: false
+            referencedRelation: "trees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       climate_zones: {
         Row: {
           code: string
@@ -1713,6 +1814,269 @@ export type Database = {
         }
         Relationships: []
       }
+      tree_defects: {
+        Row: {
+          affects_structure: boolean | null
+          assessment_id: string | null
+          created_at: string | null
+          defect_id: string | null
+          description: string | null
+          extent_percentage: number | null
+          id: string
+          location_on_tree: string | null
+          severity_rating: number | null
+        }
+        Insert: {
+          affects_structure?: boolean | null
+          assessment_id?: string | null
+          created_at?: string | null
+          defect_id?: string | null
+          description?: string | null
+          extent_percentage?: number | null
+          id?: string
+          location_on_tree?: string | null
+          severity_rating?: number | null
+        }
+        Update: {
+          affects_structure?: boolean | null
+          assessment_id?: string | null
+          created_at?: string | null
+          defect_id?: string | null
+          description?: string | null
+          extent_percentage?: number | null
+          id?: string
+          location_on_tree?: string | null
+          severity_rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tree_defects_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tree_defects_defect_id_fkey"
+            columns: ["defect_id"]
+            isOneToOne: false
+            referencedRelation: "defects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tree_neighbors: {
+        Row: {
+          created_at: string | null
+          distance_m: number | null
+          id: string
+          influence_notes: string | null
+          neighbor_tree_id: string | null
+          primary_tree_id: string | null
+          relationship_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          distance_m?: number | null
+          id?: string
+          influence_notes?: string | null
+          neighbor_tree_id?: string | null
+          primary_tree_id?: string | null
+          relationship_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          distance_m?: number | null
+          id?: string
+          influence_notes?: string | null
+          neighbor_tree_id?: string | null
+          primary_tree_id?: string | null
+          relationship_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tree_neighbors_neighbor_tree_id_fkey"
+            columns: ["neighbor_tree_id"]
+            isOneToOne: false
+            referencedRelation: "trees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tree_neighbors_primary_tree_id_fkey"
+            columns: ["primary_tree_id"]
+            isOneToOne: false
+            referencedRelation: "trees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tree_photos: {
+        Row: {
+          assessment_id: string | null
+          caption: string | null
+          created_at: string | null
+          file_path: string
+          id: string
+          photo_type: string | null
+          taken_at: string | null
+          tree_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          file_path: string
+          id?: string
+          photo_type?: string | null
+          taken_at?: string | null
+          tree_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          caption?: string | null
+          created_at?: string | null
+          file_path?: string
+          id?: string
+          photo_type?: string | null
+          taken_at?: string | null
+          tree_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tree_photos_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tree_photos_tree_id_fkey"
+            columns: ["tree_id"]
+            isOneToOne: false
+            referencedRelation: "trees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tree_targets: {
+        Row: {
+          assessment_id: string | null
+          created_at: string | null
+          description: string | null
+          distance_m: number | null
+          id: string
+          occupancy_frequency: string | null
+          target_type: Database["public"]["Enums"]["target_type"]
+          value_rating: number | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          distance_m?: number | null
+          id?: string
+          occupancy_frequency?: string | null
+          target_type: Database["public"]["Enums"]["target_type"]
+          value_rating?: number | null
+        }
+        Update: {
+          assessment_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          distance_m?: number | null
+          id?: string
+          occupancy_frequency?: string | null
+          target_type?: Database["public"]["Enums"]["target_type"]
+          value_rating?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tree_targets_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trees: {
+        Row: {
+          age_estimate: number | null
+          created_at: string | null
+          created_by: string | null
+          crown_spread_m: number | null
+          dbh_cm: number | null
+          height_m: number | null
+          id: string
+          latitude: number
+          location_description: string | null
+          longitude: number
+          notes: string | null
+          ownership: string | null
+          protected_status: boolean | null
+          site_conditions: string | null
+          species_id: string | null
+          tree_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          age_estimate?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          crown_spread_m?: number | null
+          dbh_cm?: number | null
+          height_m?: number | null
+          id?: string
+          latitude: number
+          location_description?: string | null
+          longitude: number
+          notes?: string | null
+          ownership?: string | null
+          protected_status?: boolean | null
+          site_conditions?: string | null
+          species_id?: string | null
+          tree_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          age_estimate?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          crown_spread_m?: number | null
+          dbh_cm?: number | null
+          height_m?: number | null
+          id?: string
+          latitude?: number
+          location_description?: string | null
+          longitude?: number
+          notes?: string | null
+          ownership?: string | null
+          protected_status?: boolean | null
+          site_conditions?: string | null
+          species_id?: string | null
+          tree_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trees_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "species"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trees_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       use_cases: {
         Row: {
           id: string
@@ -2021,6 +2385,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "qtra_arborist" | "certified_arborist" | "user"
+      assessment_status: "draft" | "completed" | "reviewed" | "archived"
       colonization_route:
         | "wound"
         | "root_contact"
@@ -2099,12 +2464,19 @@ export type Database = {
         | "completed"
         | "error"
         | "paused"
+      risk_rating: "very_low" | "low" | "moderate" | "high" | "very_high"
       suggestion_type:
         | "species"
         | "defect"
         | "fungus"
         | "mitigation"
         | "feature"
+        | "other"
+      target_type:
+        | "people"
+        | "property"
+        | "infrastructure"
+        | "vehicle"
         | "other"
       tissue_pref:
         | "root"
@@ -2243,6 +2615,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "qtra_arborist", "certified_arborist", "user"],
+      assessment_status: ["draft", "completed", "reviewed", "archived"],
       colonization_route: [
         "wound",
         "root_contact",
@@ -2329,6 +2702,7 @@ export const Constants = {
         "error",
         "paused",
       ],
+      risk_rating: ["very_low", "low", "moderate", "high", "very_high"],
       suggestion_type: [
         "species",
         "defect",
@@ -2337,6 +2711,7 @@ export const Constants = {
         "feature",
         "other",
       ],
+      target_type: ["people", "property", "infrastructure", "vehicle", "other"],
       tissue_pref: [
         "root",
         "buttress",
