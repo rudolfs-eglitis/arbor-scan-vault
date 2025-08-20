@@ -167,13 +167,6 @@ export type Database = {
             referencedRelation: "trees"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "assessments_tree_id_fkey"
-            columns: ["tree_id"]
-            isOneToOne: false
-            referencedRelation: "trees_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       climate_zones: {
@@ -1909,24 +1902,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tree_neighbors_neighbor_tree_id_fkey"
-            columns: ["neighbor_tree_id"]
-            isOneToOne: false
-            referencedRelation: "trees_public"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "tree_neighbors_primary_tree_id_fkey"
             columns: ["primary_tree_id"]
             isOneToOne: false
             referencedRelation: "trees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tree_neighbors_primary_tree_id_fkey"
-            columns: ["primary_tree_id"]
-            isOneToOne: false
-            referencedRelation: "trees_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1978,13 +1957,6 @@ export type Database = {
             columns: ["tree_id"]
             isOneToOne: false
             referencedRelation: "trees"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tree_photos_tree_id_fkey"
-            columns: ["tree_id"]
-            isOneToOne: false
-            referencedRelation: "trees_public"
             referencedColumns: ["id"]
           },
         ]
@@ -2146,81 +2118,6 @@ export type Database = {
       }
     }
     Views: {
-      trees_public: {
-        Row: {
-          age_estimate: number | null
-          created_at: string | null
-          created_by: string | null
-          crown_spread_m: number | null
-          dbh_cm: number | null
-          height_m: number | null
-          id: string | null
-          latitude: number | null
-          location_description: string | null
-          longitude: number | null
-          notes: string | null
-          ownership: string | null
-          protected_status: boolean | null
-          site_conditions: string | null
-          species_id: string | null
-          tree_number: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          age_estimate?: number | null
-          created_at?: string | null
-          created_by?: string | null
-          crown_spread_m?: number | null
-          dbh_cm?: number | null
-          height_m?: number | null
-          id?: string | null
-          latitude?: never
-          location_description?: string | null
-          longitude?: never
-          notes?: string | null
-          ownership?: string | null
-          protected_status?: boolean | null
-          site_conditions?: string | null
-          species_id?: string | null
-          tree_number?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          age_estimate?: number | null
-          created_at?: string | null
-          created_by?: string | null
-          crown_spread_m?: number | null
-          dbh_cm?: number | null
-          height_m?: number | null
-          id?: string | null
-          latitude?: never
-          location_description?: string | null
-          longitude?: never
-          notes?: string | null
-          ownership?: string | null
-          protected_status?: boolean | null
-          site_conditions?: string | null
-          species_id?: string | null
-          tree_number?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trees_species_id_fkey"
-            columns: ["species_id"]
-            isOneToOne: false
-            referencedRelation: "species"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "trees_species_id_fkey"
-            columns: ["species_id"]
-            isOneToOne: false
-            referencedRelation: "v_species_profile"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       v_defect_species_mitigations: {
         Row: {
           action: string | null
@@ -2338,6 +2235,28 @@ export type Database = {
       create_root_admin_user: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_trees_with_location_access: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          age_estimate: number
+          created_at: string
+          created_by: string
+          crown_spread_m: number
+          dbh_cm: number
+          height_m: number
+          id: string
+          latitude: number
+          location_description: string
+          longitude: number
+          notes: string
+          ownership: string
+          protected_status: boolean
+          site_conditions: string
+          species_id: string
+          tree_number: string
+          updated_at: string
+        }[]
       }
       get_user_roles: {
         Args: { _user_id: string }
