@@ -63,6 +63,20 @@ export type Database = {
             foreignKeyName: "assessment_outcomes_tree_species_id_fkey"
             columns: ["tree_species_id"]
             isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "assessment_outcomes_tree_species_id_fkey"
+            columns: ["tree_species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "assessment_outcomes_tree_species_id_fkey"
+            columns: ["tree_species_id"]
+            isOneToOne: false
             referencedRelation: "v_species_profile"
             referencedColumns: ["id"]
           },
@@ -354,6 +368,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fungus_defect_links_defect_id_fkey"
+            columns: ["defect_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["defect_id"]
+          },
+          {
             foreignKeyName: "fungus_defect_links_fungus_id_fkey"
             columns: ["fungus_id"]
             isOneToOne: false
@@ -365,7 +386,7 @@ export type Database = {
             columns: ["fungus_id"]
             isOneToOne: false
             referencedRelation: "v_fungus_with_mgmt"
-            referencedColumns: ["fungus_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fungus_defect_links_fungus_id_fkey"
@@ -414,7 +435,7 @@ export type Database = {
             columns: ["fungus_id"]
             isOneToOne: false
             referencedRelation: "v_fungus_with_mgmt"
-            referencedColumns: ["fungus_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fungus_hosts_fungus_id_fkey"
@@ -429,6 +450,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fungus_hosts_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "fungus_hosts_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "fungus_hosts_species_id_fkey"
@@ -498,7 +533,7 @@ export type Database = {
             columns: ["fungus_id"]
             isOneToOne: false
             referencedRelation: "v_fungus_with_mgmt"
-            referencedColumns: ["fungus_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fungus_management_fungus_id_fkey"
@@ -557,7 +592,7 @@ export type Database = {
             columns: ["fungus_id"]
             isOneToOne: false
             referencedRelation: "v_fungus_with_mgmt"
-            referencedColumns: ["fungus_id"]
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "fungus_signs_fungus_id_fkey"
@@ -876,11 +911,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "mitigations_defect_id_fkey"
+            columns: ["defect_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["defect_id"]
+          },
+          {
             foreignKeyName: "mitigations_species_id_fkey"
             columns: ["species_id"]
             isOneToOne: false
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mitigations_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "mitigations_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "mitigations_species_id_fkey"
@@ -1165,11 +1221,32 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "species_defects_defect_id_fkey"
+            columns: ["defect_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["defect_id"]
+          },
+          {
             foreignKeyName: "species_defects_species_id_fkey"
             columns: ["species_id"]
             isOneToOne: false
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "species_defects_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_defects_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "species_defects_species_id_fkey"
@@ -1225,6 +1302,20 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "species_ecology_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_ecology_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "species_ecology_species_id_fkey"
@@ -1304,6 +1395,20 @@ export type Database = {
             foreignKeyName: "species_features_species_id_fkey"
             columns: ["species_id"]
             isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_features_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_features_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
             referencedRelation: "v_species_profile"
             referencedColumns: ["id"]
           },
@@ -1366,6 +1471,20 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "species_growth_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_growth_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "species_growth_species_id_fkey"
@@ -1461,6 +1580,20 @@ export type Database = {
             foreignKeyName: "species_life_expectancy_profile_species_id_fkey"
             columns: ["species_id"]
             isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_life_expectancy_profile_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_life_expectancy_profile_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
             referencedRelation: "v_species_profile"
             referencedColumns: ["id"]
           },
@@ -1517,6 +1650,20 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "species_origin_climate_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_origin_climate_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "species_origin_climate_species_id_fkey"
@@ -1595,6 +1742,20 @@ export type Database = {
             foreignKeyName: "species_site_traits_species_id_fkey"
             columns: ["species_id"]
             isOneToOne: true
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_site_traits_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_site_traits_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
             referencedRelation: "v_species_profile"
             referencedColumns: ["id"]
           },
@@ -1643,6 +1804,20 @@ export type Database = {
             foreignKeyName: "species_swedish_regs_species_id_fkey"
             columns: ["species_id"]
             isOneToOne: true
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_swedish_regs_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_swedish_regs_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: true
             referencedRelation: "v_species_profile"
             referencedColumns: ["id"]
           },
@@ -1668,6 +1843,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "species_tags_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_tags_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "species_tags_species_id_fkey"
@@ -1724,6 +1913,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "species"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "species_use_cases_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "species_use_cases_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
           },
           {
             foreignKeyName: "species_use_cases_species_id_fkey"
@@ -1862,6 +2065,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "defects"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tree_defects_defect_id_fkey"
+            columns: ["defect_id"]
+            isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["defect_id"]
           },
         ]
       }
@@ -2072,6 +2282,20 @@ export type Database = {
             foreignKeyName: "trees_species_id_fkey"
             columns: ["species_id"]
             isOneToOne: false
+            referencedRelation: "v_defect_species_mitigations"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "trees_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
+            referencedRelation: "v_species_fungi"
+            referencedColumns: ["species_id"]
+          },
+          {
+            foreignKeyName: "trees_species_id_fkey"
+            columns: ["species_id"]
+            isOneToOne: false
             referencedRelation: "v_species_profile"
             referencedColumns: ["id"]
           },
@@ -2121,104 +2345,59 @@ export type Database = {
       v_defect_species_mitigations: {
         Row: {
           action: string | null
-          category: Database["public"]["Enums"]["defect_category"] | null
-          conditions: string | null
+          conditions_en: string | null
           defect_id: string | null
           defect_name: string | null
-          follow_up: string | null
+          follow_up_en: string | null
           likelihood: Database["public"]["Enums"]["likelihood"] | null
-          mitigation_id: number | null
-          mtype: Database["public"]["Enums"]["mitigation_type"] | null
+          scientific_name: string | null
           species_id: string | null
-          timing: string | null
+          timing_en: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "species_defects_defect_id_fkey"
-            columns: ["defect_id"]
-            isOneToOne: false
-            referencedRelation: "defects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "species_defects_species_id_fkey"
-            columns: ["species_id"]
-            isOneToOne: false
-            referencedRelation: "species"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "species_defects_species_id_fkey"
-            columns: ["species_id"]
-            isOneToOne: false
-            referencedRelation: "v_species_profile"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_fungus_with_mgmt: {
         Row: {
-          actions: Json[] | null
+          action_en: string | null
+          common_names: string[] | null
+          conditions_en: string | null
           decay: Database["public"]["Enums"]["decay_type"] | null
-          fungus_id: string | null
+          follow_up_en: string | null
+          id: string | null
           scientific_name: string | null
-          typical_tissue: Database["public"]["Enums"]["tissue_pref"][] | null
+          structural_effect_en: string | null
+          timing_en: string | null
         }
         Relationships: []
       }
       v_species_fungi: {
         Row: {
-          common_names: string[] | null
-          decay: Database["public"]["Enums"]["decay_type"] | null
+          evidence_en: string | null
           frequency: Database["public"]["Enums"]["host_freq"] | null
           fungus_id: string | null
+          fungus_name: string | null
           scientific_name: string | null
           species_id: string | null
-          structural_effect_en: string | null
-          typical_tissue: Database["public"]["Enums"]["tissue_pref"][] | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fungus_hosts_species_id_fkey"
-            columns: ["species_id"]
-            isOneToOne: false
-            referencedRelation: "species"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fungus_hosts_species_id_fkey"
-            columns: ["species_id"]
-            isOneToOne: false
-            referencedRelation: "v_species_profile"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       v_species_profile: {
         Row: {
           allergenicity: number | null
           common_names: string[] | null
-          compaction_tolerance: number | null
-          crown_form: Database["public"]["Enums"]["crown_form"] | null
-          deicing_salt_tolerance: number | null
           drought_tolerance: number | null
+          family: string | null
+          genus: string | null
           growth_rate: Database["public"]["Enums"]["growth_rate"] | null
-          hardiness_max: number | null
-          hardiness_min: number | null
           id: string | null
-          maintenance: Database["public"]["Enums"]["maintenance_level"] | null
+          lifespan_years: number | null
           mature_height_m: number | null
           mature_spread_m: number | null
           pollinator_value: number | null
           pollution_tolerance: number | null
-          recommended_use_cases: string[] | null
-          root_space_need_m3: number | null
           scientific_name: string | null
           shade_tolerance: number | null
-          urban_heat_island_tolerance: number | null
-          waterlogging_tolerance: number | null
           wildlife_value: number | null
-          wind_tolerance: number | null
         }
         Relationships: []
       }

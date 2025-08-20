@@ -38,14 +38,7 @@ port = 54326
 enabled = true
 port = 54327
 
-[functions.process-ocr]
-verify_jwt = false
-
+# Edge functions now require JWT verification for security
+# Only process-openai-ocr remains public for external processing workflows
 [functions.process-openai-ocr]
-verify_jwt = false
-
-[functions.translate-content]
-verify_jwt = false
-
-[functions.extract-structured-data]
 verify_jwt = false
