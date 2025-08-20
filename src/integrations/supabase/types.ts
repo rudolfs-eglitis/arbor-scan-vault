@@ -2222,10 +2222,10 @@ export type Database = {
           height_m: number | null
           id: string
           lat: number | null
-          latitude: number
+          latitude: number | null
           lng: number | null
           location_description: string | null
-          longitude: number
+          longitude: number | null
           notes: string | null
           ownership: string | null
           protected_status: boolean | null
@@ -2243,10 +2243,10 @@ export type Database = {
           height_m?: number | null
           id?: string
           lat?: number | null
-          latitude: number
+          latitude?: number | null
           lng?: number | null
           location_description?: string | null
-          longitude: number
+          longitude?: number | null
           notes?: string | null
           ownership?: string | null
           protected_status?: boolean | null
@@ -2264,10 +2264,10 @@ export type Database = {
           height_m?: number | null
           id?: string
           lat?: number | null
-          latitude?: number
+          latitude?: number | null
           lng?: number | null
           location_description?: string | null
-          longitude?: number
+          longitude?: number | null
           notes?: string | null
           ownership?: string | null
           protected_status?: boolean | null

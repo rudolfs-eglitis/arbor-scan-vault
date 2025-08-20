@@ -28,12 +28,19 @@ export function TreeMap({
   const [isAddingTree, setIsAddingTree] = useState(false);
   const [useAerial, setUseAerial] = useState(true);
 
-  // Calculate center based on trees with coordinates, or use default
-  const mapCenter = trees.find(t => t.latitude && t.longitude) 
-    ? { lat: trees.find(t => t.latitude && t.longitude)!.latitude!, lng: trees.find(t => t.latitude && t.longitude)!.longitude! }
+  // Calculate center based on trees with coordinates (handle both systems), or use default
+  const treeWithCoords = trees.find(t => 
+    (t.latitude && t.longitude) || (t.lat && t.lng)
+  );
+  
+  const mapCenter = treeWithCoords 
+    ? { 
+        lat: treeWithCoords.latitude || treeWithCoords.lat || center.lat, 
+        lng: treeWithCoords.longitude || treeWithCoords.lng || center.lng 
+      }
     : center;
 
-  const mapZoom = trees.some(t => t.latitude && t.longitude) ? 16 : zoom;
+  const mapZoom = treeWithCoords ? 16 : zoom;
 
   // Leaflet marker icon
   const icon = new L.Icon({
@@ -116,41 +123,47 @@ export function TreeMap({
 
         {/* Tree Markers */}
         {trees
-          .filter(tree => tree.latitude && tree.longitude)
-          .map((tree) => (
-            <Marker
-              key={tree.id}
-              position={[tree.latitude!, tree.longitude!]}
-              icon={selectedTreeId === tree.id ? selectedIcon : icon}
-              eventHandlers={{
-                click: () => onTreeSelect(tree),
-              }}
-            >
-              <Popup>
-                <div className="p-2">
-                  <h3 className="font-medium">
-                    {tree.tree_number || `Tree ${tree.id.slice(0, 8)}`}
-                  </h3>
-                  {tree.species_id && (
-                    <p className="text-sm text-muted-foreground">
-                      Species: {tree.species_id}
-                    </p>
-                  )}
-                  {tree.dbh_cm && (
-                    <p className="text-sm">DBH: {tree.dbh_cm} cm</p>
-                  )}
-                  {tree.height_m && (
-                    <p className="text-sm">Height: {tree.height_m} m</p>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+          .filter(tree => 
+            (tree.latitude && tree.longitude) || (tree.lat && tree.lng)
+          )
+          .map((tree) => {
+            const lat = tree.latitude || tree.lat;
+            const lng = tree.longitude || tree.lng;
+            return (
+              <Marker
+                key={tree.id}
+                position={[lat!, lng!]}
+                icon={selectedTreeId === tree.id ? selectedIcon : icon}
+                eventHandlers={{
+                  click: () => onTreeSelect(tree),
+                }}
+              >
+                <Popup>
+                  <div className="p-2">
+                    <h3 className="font-medium">
+                      {tree.tree_number || `Tree ${tree.id.slice(0, 8)}`}
+                    </h3>
+                    {tree.species_id && (
+                      <p className="text-sm text-muted-foreground">
+                        Species: {tree.species_id}
+                      </p>
+                    )}
+                    {tree.dbh_cm && (
+                      <p className="text-sm">DBH: {tree.dbh_cm} cm</p>
+                    )}
+                    {tree.height_m && (
+                      <p className="text-sm">Height: {tree.height_m} m</p>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
       </MapContainer>
 
       {/* Map Info */}
       <div className="absolute bottom-4 left-4 bg-background/90 p-2 rounded text-xs text-muted-foreground z-10">
-        Trees: {trees.length} | With Coordinates: {trees.filter(t => t.latitude && t.longitude).length}
+        Trees: {trees.length} | With Coordinates: {trees.filter(t => (t.latitude && t.longitude) || (t.lat && t.lng)).length}
       </div>
 
       {/* Adding Tree Instructions */}

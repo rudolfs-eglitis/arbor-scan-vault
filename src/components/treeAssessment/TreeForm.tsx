@@ -17,8 +17,10 @@ import { TreeLocationSection } from './TreeLocationSection';
 const treeFormSchema = z.object({
   tree_number: z.string().optional(),
   species_id: z.string().optional(),
-  latitude: z.number({ required_error: "Latitude is required" }).min(-90, "Invalid latitude").max(90, "Invalid latitude"),
-  longitude: z.number({ required_error: "Longitude is required" }).min(-180, "Invalid longitude").max(180, "Invalid longitude"),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
   dbh_cm: z.number().min(1).max(1500).optional(),
   height_m: z.number().min(1).max(120).optional(),
   crown_spread_m: z.number().min(0).optional(),
@@ -49,8 +51,10 @@ export function TreeForm({ tree, defaultLocation, onSubmit, onCancel, loading }:
     defaultValues: {
       tree_number: tree?.tree_number || '',
       species_id: tree?.species_id || '',
-      latitude: tree?.latitude || defaultLocation?.lat || 59.3293,
-      longitude: tree?.longitude || defaultLocation?.lng || 18.0686,
+      latitude: tree?.latitude || undefined,
+      longitude: tree?.longitude || undefined,
+      lat: tree?.lat || tree?.latitude || defaultLocation?.lat || 59.3293,
+      lng: tree?.lng || tree?.longitude || defaultLocation?.lng || 18.0686,
       dbh_cm: tree?.dbh_cm || undefined,
       height_m: tree?.height_m || undefined,
       crown_spread_m: tree?.crown_spread_m || undefined,
@@ -85,7 +89,19 @@ export function TreeForm({ tree, defaultLocation, onSubmit, onCancel, loading }:
 
   const handleSubmit = async (data: TreeFormData) => {
     try {
-      await onSubmit(data);
+      if (!data.lat || !data.lng) {
+        console.error("Missing coordinates:", data);
+        return;
+      }
+      
+      // Set both coordinate systems for backward compatibility
+      const treeData = {
+        ...data,
+        latitude: data.lat,
+        longitude: data.lng,
+      };
+      
+      await onSubmit(treeData);
     } catch (error) {
       console.error('Error submitting tree form:', error);
     }
@@ -150,9 +166,11 @@ export function TreeForm({ tree, defaultLocation, onSubmit, onCancel, loading }:
             <div className="space-y-4">
               <h3 className="text-lg font-medium">Location</h3>
               <TreeLocationSection
-                initialLat={form.watch('latitude')}
-                initialLng={form.watch('longitude')}
+                initialLat={form.watch('lat')}
+                initialLng={form.watch('lng')}
                 onLatLngChange={(lat, lng) => {
+                  form.setValue('lat', lat);
+                  form.setValue('lng', lng);
                   form.setValue('latitude', lat);
                   form.setValue('longitude', lng);
                 }}

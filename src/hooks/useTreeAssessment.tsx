@@ -6,8 +6,10 @@ export interface Tree {
   id: string;
   tree_number?: string;
   species_id?: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  lat?: number | null;
+  lng?: number | null;
   dbh_cm?: number;
   height_m?: number;
   crown_spread_m?: number;
@@ -135,7 +137,7 @@ export function useTreeAssessment() {
     }
   };
 
-  const createTree = async (treeData: Omit<Partial<Tree>, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'species'> & { latitude: number; longitude: number }) => {
+  const createTree = async (treeData: Omit<Partial<Tree>, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'species'>) => {
     if (!user?.id) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
