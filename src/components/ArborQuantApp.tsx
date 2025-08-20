@@ -8,6 +8,7 @@ import { Upload, FileText, Clock, CheckCircle, TreePine, BookOpen, FileCheck, Li
 import { ProtectedRoute } from './ProtectedRoute';
 import { UserProfile } from './UserProfile';
 import { useAuth } from '@/hooks/useAuth';
+import { TreeAssessmentTab } from './tabs/TreeAssessmentTab';
 import { SourcesTab } from './tabs/SourcesTab';
 import UploadTab from './tabs/UploadTab';
 import QueueTab from './tabs/QueueTab';
@@ -16,18 +17,15 @@ import { UsersTab } from './tabs/UsersTab';
 import { OCRTest } from './OCRTest';
 
 const ArborQuantApp = () => {
-  const [activeTab, setActiveTab] = useState('sources');
+  const [activeTab, setActiveTab] = useState('assessment');
   const { hasRole } = useAuth();
 
   // Determine which tabs to show based on user roles
-  const canManageKnowledgeBase = hasRole('admin'); // Only admins can manage knowledge base for now
+  const canManageKnowledgeBase = hasRole('admin'); // Only admins can manage knowledge base
   const isAdmin = hasRole('admin');
 
-  // Show different default tab based on permissions
-  const defaultTab = canManageKnowledgeBase ? "sources" : "review";
-
-  // For non-admin users, show empty dashboard until content exists
-  const showEmptyDashboard = !canManageKnowledgeBase;
+  // Tree Assessment is now the primary workflow for all users
+  const defaultTab = "assessment";
 
   return (
     <ProtectedRoute>
@@ -42,7 +40,7 @@ const ArborQuantApp = () => {
                   <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
                     ArborQuant
                   </h1>
-                  <p className="text-sm text-muted-foreground">Knowledge Base Management</p>
+                  <p className="text-sm text-muted-foreground">Tree Assessment & Knowledge Management</p>
                 </div>
               </div>
               <UserProfile />
@@ -52,96 +50,90 @@ const ArborQuantApp = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6">
-        {showEmptyDashboard ? (
-          /* Empty Dashboard for New Users */
-          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-            <div className="mb-8">
-              <img src="/lovable-uploads/faca9ea3-cd95-435c-8240-f9e5fa9d2729.png" alt="ArborQuant Logo" className="h-16 w-16 mx-auto mb-4 opacity-50" />
-              <h2 className="text-3xl font-bold text-foreground mb-2">Welcome to ArborQuant</h2>
-              <p className="text-lg text-muted-foreground mb-4">
-                Your digital arboriculture knowledge management system
-              </p>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                The knowledge base is currently being set up. You'll be able to access content once it's available.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" defaultValue={defaultTab}>
-              <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-6' : canManageKnowledgeBase ? 'grid-cols-4' : 'grid-cols-2'}`}>
-                {canManageKnowledgeBase && (
-                  <TabsTrigger value="sources" className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Sources
-                  </TabsTrigger>
-                )}
-                {canManageKnowledgeBase && (
-                  <TabsTrigger value="upload" className="flex items-center gap-2">
-                    <Upload className="h-4 w-4" />
-                    Upload
-                  </TabsTrigger>
-                )}
-                {canManageKnowledgeBase && (
-                  <TabsTrigger value="queue" className="flex items-center gap-2">
-                    <List className="h-4 w-4" />
-                    Queue
-                  </TabsTrigger>
-                )}
-                <TabsTrigger value="review" className="flex items-center gap-2">
-                  <FileCheck className="h-4 w-4" />
-                  Review
-                </TabsTrigger>
-                {isAdmin && (
-                  <TabsTrigger value="users" className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Users
-                  </TabsTrigger>
-                )}
-                {isAdmin && (
-                  <TabsTrigger value="test" className="flex items-center gap-2">
-                    <Settings className="h-4 w-4" />
-                    Test OCR
-                  </TabsTrigger>
-                )}
-              </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" defaultValue={defaultTab}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-7' : 'grid-cols-1'}`}>
+            <TabsTrigger value="assessment" className="flex items-center gap-2">
+              <TreePine className="h-4 w-4" />
+              Tree Assessment
+            </TabsTrigger>
+            {canManageKnowledgeBase && (
+              <TabsTrigger value="sources" className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Knowledge Base
+              </TabsTrigger>
+            )}
+            {canManageKnowledgeBase && (
+              <TabsTrigger value="upload" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Upload
+              </TabsTrigger>
+            )}
+            {canManageKnowledgeBase && (
+              <TabsTrigger value="queue" className="flex items-center gap-2">
+                <List className="h-4 w-4" />
+                Queue
+              </TabsTrigger>
+            )}
+            {canManageKnowledgeBase && (
+              <TabsTrigger value="review" className="flex items-center gap-2">
+                <FileCheck className="h-4 w-4" />
+                Review
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="users" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Users
+              </TabsTrigger>
+            )}
+            {isAdmin && (
+              <TabsTrigger value="test" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Test OCR
+              </TabsTrigger>
+            )}
+          </TabsList>
 
-              {canManageKnowledgeBase && (
-                <TabsContent value="sources" className="mt-6">
-                  <SourcesTab />
-                </TabsContent>
-              )}
+          <TabsContent value="assessment" className="mt-6">
+            <TreeAssessmentTab />
+          </TabsContent>
 
-              {canManageKnowledgeBase && (
-                <TabsContent value="upload" className="mt-6">
-                  <UploadTab />
-                </TabsContent>
-              )}
+          {canManageKnowledgeBase && (
+            <TabsContent value="sources" className="mt-6">
+              <SourcesTab />
+            </TabsContent>
+          )}
 
-              {canManageKnowledgeBase && (
-                <TabsContent value="queue" className="mt-6">
-                  <QueueTab />
-                </TabsContent>
-              )}
+          {canManageKnowledgeBase && (
+            <TabsContent value="upload" className="mt-6">
+              <UploadTab />
+            </TabsContent>
+          )}
 
-              <TabsContent value="review" className="mt-6">
-                <ReviewTab />
-              </TabsContent>
+          {canManageKnowledgeBase && (
+            <TabsContent value="queue" className="mt-6">
+              <QueueTab />
+            </TabsContent>
+          )}
 
-              {isAdmin && (
-                <TabsContent value="users" className="mt-6">
-                  <UsersTab />
-                </TabsContent>
-              )}
+          {canManageKnowledgeBase && (
+            <TabsContent value="review" className="mt-6">
+              <ReviewTab />
+            </TabsContent>
+          )}
 
-              {isAdmin && (
-                <TabsContent value="test" className="mt-6">
-                  <OCRTest />
-                </TabsContent>
-              )}
-            </Tabs>
-          </>
-        )}
+          {isAdmin && (
+            <TabsContent value="users" className="mt-6">
+              <UsersTab />
+            </TabsContent>
+          )}
+
+          {isAdmin && (
+            <TabsContent value="test" className="mt-6">
+              <OCRTest />
+            </TabsContent>
+          )}
+        </Tabs>
       </main>
     </div>
     </ProtectedRoute>
