@@ -88,16 +88,21 @@ export default function Auth() {
     // If successful, the redirect will handle the rest
   };
 
+  console.log('Auth component rendering, loading:', loading, 'user:', !!user);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
@@ -107,7 +112,7 @@ export default function Auth() {
           <p className="text-muted-foreground">Knowledge Base & Risk Assessment</p>
         </div>
 
-        <Card className="border-primary/20 shadow-elegant">
+        <Card className="border-border/50 shadow-lg">
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
