@@ -12,12 +12,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Tree } from '@/hooks/useTreeAssessment';
 import { supabase } from '@/integrations/supabase/client';
+import { TreeLocationSection } from './TreeLocationSection';
 
 const treeFormSchema = z.object({
   tree_number: z.string().optional(),
   species_id: z.string().optional(),
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
+  latitude: z.number({ required_error: "Latitude is required" }).min(-90, "Invalid latitude").max(90, "Invalid latitude"),
+  longitude: z.number({ required_error: "Longitude is required" }).min(-180, "Invalid longitude").max(180, "Invalid longitude"),
   dbh_cm: z.number().min(1).max(1500).optional(),
   height_m: z.number().min(1).max(120).optional(),
   crown_spread_m: z.number().min(0).optional(),
@@ -146,45 +147,15 @@ export function TreeForm({ tree, defaultLocation, onSubmit, onCancel, loading }:
             </div>
 
             {/* Location */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="latitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Latitude *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.000001"
-                        placeholder="59.3293"
-                        {...field}
-                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="longitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Longitude *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.000001"
-                        placeholder="18.0686"
-                        {...field}
-                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Location</h3>
+              <TreeLocationSection
+                initialLat={form.watch('latitude')}
+                initialLng={form.watch('longitude')}
+                onLatLngChange={(lat, lng) => {
+                  form.setValue('latitude', lat);
+                  form.setValue('longitude', lng);
+                }}
               />
             </div>
 

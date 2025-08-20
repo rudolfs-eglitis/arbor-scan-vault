@@ -2221,7 +2221,9 @@ export type Database = {
           dbh_cm: number | null
           height_m: number | null
           id: string
+          lat: number | null
           latitude: number
+          lng: number | null
           location_description: string | null
           longitude: number
           notes: string | null
@@ -2240,7 +2242,9 @@ export type Database = {
           dbh_cm?: number | null
           height_m?: number | null
           id?: string
+          lat?: number | null
           latitude: number
+          lng?: number | null
           location_description?: string | null
           longitude: number
           notes?: string | null
@@ -2259,7 +2263,9 @@ export type Database = {
           dbh_cm?: number | null
           height_m?: number | null
           id?: string
+          lat?: number | null
           latitude?: number
+          lng?: number | null
           location_description?: string | null
           longitude?: number
           notes?: string | null
