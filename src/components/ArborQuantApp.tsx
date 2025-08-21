@@ -20,45 +20,32 @@ import { OCRTest } from './OCRTest';
 const ArborQuantApp = () => {
   const { hasRole, loading, profile } = useAuth();
   
-  // Initialize with 'assessment' but will be updated after auth is complete
+  // Initialize with 'assessment' as default for all users
   const [activeMainTab, setActiveMainTab] = useState('assessment');
   const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('sources');
-  const [activeUserTab, setActiveUserTab] = useState('users');
   const isMobile = useIsMobile();
 
   // Update active tab once authentication and role loading is complete
   useEffect(() => {
-    console.log('Auth state changed, loading:', loading, 'profile:', !!profile, 'hasAdminRole:', hasRole('admin'));
-    
     if (!loading && profile) {
-      const defaultTab = hasRole('admin') ? 'sources' : 'assessment';
-      console.log('Setting default tab to:', defaultTab);
-      setActiveMainTab(defaultTab);
+      // Always default to assessment tab for cleaner UX
+      setActiveMainTab('assessment');
     }
-  }, [loading, profile, hasRole]);
-
-  console.log('ArborQuantApp rendering:', { 
-    loading,
-    profile: !!profile,
-    canManageKnowledgeBase: hasRole('admin'), 
-    isAdmin: hasRole('admin'),
-    activeMainTab 
-  });
+  }, [loading, profile]);
 
   // Determine which tabs to show based on user roles
-  const canManageKnowledgeBase = hasRole('admin');
   const isAdmin = hasRole('admin');
 
   const renderMobileLayout = () => (
     <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full" defaultValue="assessment">
-      {/* Main Navigation */}
-      <TabsList className="grid w-full grid-cols-3">
+      {/* Main Navigation - Always show all 3 tabs, but disable admin ones for non-admins */}
+      <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
         <TabsTrigger value="assessment" className="flex items-center gap-2">
           <TreePine className="h-4 w-4" />
           <span className="hidden sm:inline">Tree Assessment</span>
           <span className="sm:hidden">Trees</span>
         </TabsTrigger>
-        {canManageKnowledgeBase && (
+        {isAdmin && (
           <TabsTrigger value="knowledge" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
             <span className="hidden sm:inline">Knowledge Base</span>
@@ -66,10 +53,10 @@ const ArborQuantApp = () => {
           </TabsTrigger>
         )}
         {isAdmin && (
-          <TabsTrigger value="admin" className="flex items-center gap-2">
+          <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            <span className="hidden sm:inline">Administration</span>
-            <span className="sm:hidden">Admin</span>
+            <span className="hidden sm:inline">Users</span>
+            <span className="sm:hidden">Users</span>
           </TabsTrigger>
         )}
       </TabsList>
@@ -80,7 +67,7 @@ const ArborQuantApp = () => {
       </TabsContent>
 
       {/* Knowledge Base Tab with Sub-tabs */}
-      {canManageKnowledgeBase && (
+      {isAdmin && (
         <TabsContent value="knowledge" className="mt-6">
           <Tabs value={activeKnowledgeTab} onValueChange={setActiveKnowledgeTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
@@ -118,28 +105,10 @@ const ArborQuantApp = () => {
         </TabsContent>
       )}
 
-      {/* Admin Tab with Sub-tabs */}
+      {/* Users Tab */}
       {isAdmin && (
-        <TabsContent value="admin" className="mt-6">
-          <Tabs value={activeUserTab} onValueChange={setActiveUserTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Users
-              </TabsTrigger>
-              <TabsTrigger value="test" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Test OCR
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="users" className="mt-4">
-              <UsersTab />
-            </TabsContent>
-            <TabsContent value="test" className="mt-4">
-              <OCRTest />
-            </TabsContent>
-          </Tabs>
+        <TabsContent value="users" className="mt-6">
+          <UsersTab />
         </TabsContent>
       )}
     </Tabs>
@@ -147,42 +116,22 @@ const ArborQuantApp = () => {
 
   const renderDesktopLayout = () => (
     <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full" defaultValue="assessment">
-      <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-7' : canManageKnowledgeBase ? 'grid-cols-5' : 'grid-cols-1'}`}>
+      <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
         <TabsTrigger value="assessment" className="flex items-center gap-2">
           <TreePine className="h-4 w-4" />
           Tree Assessment
         </TabsTrigger>
-        {canManageKnowledgeBase && (
-          <>
-            <TabsTrigger value="sources" className="flex items-center gap-2">
-              <BookOpen className="h-4 w-4" />
-              Knowledge Base
-            </TabsTrigger>
-            <TabsTrigger value="upload" className="flex items-center gap-2">
-              <Upload className="h-4 w-4" />
-              Upload
-            </TabsTrigger>
-            <TabsTrigger value="queue" className="flex items-center gap-2">
-              <List className="h-4 w-4" />
-              Queue
-            </TabsTrigger>
-            <TabsTrigger value="review" className="flex items-center gap-2">
-              <FileCheck className="h-4 w-4" />
-              Review
-            </TabsTrigger>
-          </>
+        {isAdmin && (
+          <TabsTrigger value="knowledge" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Knowledge Base
+          </TabsTrigger>
         )}
         {isAdmin && (
-          <>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="test" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Test OCR
-            </TabsTrigger>
-          </>
+          <TabsTrigger value="users" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Users
+          </TabsTrigger>
         )}
       </TabsList>
 
@@ -190,32 +139,48 @@ const ArborQuantApp = () => {
         <TreeAssessmentTab />
       </TabsContent>
 
-      {canManageKnowledgeBase && (
-        <>
-          <TabsContent value="sources" className="mt-6">
-            <SourcesTab />
-          </TabsContent>
-          <TabsContent value="upload" className="mt-6">
-            <UploadTab />
-          </TabsContent>
-          <TabsContent value="queue" className="mt-6">
-            <QueueTab />
-          </TabsContent>
-          <TabsContent value="review" className="mt-6">
-            <ReviewTab />
-          </TabsContent>
-        </>
+      {isAdmin && (
+        <TabsContent value="knowledge" className="mt-6">
+          <Tabs value={activeKnowledgeTab} onValueChange={setActiveKnowledgeTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="sources" className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Sources
+              </TabsTrigger>
+              <TabsTrigger value="upload" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Upload
+              </TabsTrigger>
+              <TabsTrigger value="queue" className="flex items-center gap-2">
+                <List className="h-4 w-4" />
+                Queue
+              </TabsTrigger>
+              <TabsTrigger value="review" className="flex items-center gap-2">
+                <FileCheck className="h-4 w-4" />
+                Review
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="sources" className="mt-4">
+              <SourcesTab />
+            </TabsContent>
+            <TabsContent value="upload" className="mt-4">
+              <UploadTab />
+            </TabsContent>
+            <TabsContent value="queue" className="mt-4">
+              <QueueTab />
+            </TabsContent>
+            <TabsContent value="review" className="mt-4">
+              <ReviewTab />
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
       )}
 
       {isAdmin && (
-        <>
-          <TabsContent value="users" className="mt-6">
-            <UsersTab />
-          </TabsContent>
-          <TabsContent value="test" className="mt-6">
-            <OCRTest />
-          </TabsContent>
-        </>
+        <TabsContent value="users" className="mt-6">
+          <UsersTab />
+        </TabsContent>
       )}
     </Tabs>
   );
