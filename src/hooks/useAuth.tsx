@@ -57,10 +57,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('Setting up auth state listener');
+    let loadingTimeout: NodeJS.Timeout;
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state change:', event, 'session:', !!session, 'user:', !!session?.user);
+        
+        // Clear any pending timeout since we got an auth state change
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -74,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
         }
         
+        // Always resolve loading state after auth state change
         setLoading(false);
       }
     );
@@ -91,9 +100,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setLoading(false);
+    }).catch((error) => {
+      console.error('Error getting initial session:', error);
+      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    // Fallback timeout to ensure loading state always resolves
+    loadingTimeout = setTimeout(() => {
+      console.warn('Auth loading timeout reached, resolving loading state');
+      setLoading(false);
+    }, 10000); // 10 second timeout
+
+    return () => {
+      subscription.unsubscribe();
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+    };
   }, []);
 
   const signUp = async (email: string, password: string, displayName?: string) => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,22 +18,28 @@ import { UsersTab } from './tabs/UsersTab';
 import { OCRTest } from './OCRTest';
 
 const ArborQuantApp = () => {
-  const { hasRole } = useAuth();
+  const { hasRole, loading, profile } = useAuth();
   
-  // Set default tab based on user role - admins get knowledge base to help debug tree issues
-  const getDefaultTab = () => {
-    if (hasRole('admin')) {
-      return 'sources'; // Knowledge base as default for admins
-    }
-    return 'assessment'; // Tree assessment for regular users
-  };
-  
-  const [activeMainTab, setActiveMainTab] = useState(getDefaultTab());
+  // Initialize with 'assessment' but will be updated after auth is complete
+  const [activeMainTab, setActiveMainTab] = useState('assessment');
   const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('sources');
   const [activeUserTab, setActiveUserTab] = useState('users');
   const isMobile = useIsMobile();
 
-  console.log('ArborQuantApp rendering, hasRole:', { 
+  // Update active tab once authentication and role loading is complete
+  useEffect(() => {
+    console.log('Auth state changed, loading:', loading, 'profile:', !!profile, 'hasAdminRole:', hasRole('admin'));
+    
+    if (!loading && profile) {
+      const defaultTab = hasRole('admin') ? 'sources' : 'assessment';
+      console.log('Setting default tab to:', defaultTab);
+      setActiveMainTab(defaultTab);
+    }
+  }, [loading, profile, hasRole]);
+
+  console.log('ArborQuantApp rendering:', { 
+    loading,
+    profile: !!profile,
     canManageKnowledgeBase: hasRole('admin'), 
     isAdmin: hasRole('admin'),
     activeMainTab 
