@@ -183,6 +183,60 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          details: Json | null
+          id: number
+          record_id: string | null
+          table_name: string
+          timestamp: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          details?: Json | null
+          id?: number
+          record_id?: string | null
+          table_name: string
+          timestamp?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          details?: Json | null
+          id?: number
+          record_id?: string | null
+          table_name?: string
+          timestamp?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      auth_attempts: {
+        Row: {
+          attempt_time: string
+          email: string
+          id: number
+          ip_address: unknown | null
+          success: boolean | null
+        }
+        Insert: {
+          attempt_time?: string
+          email: string
+          id?: number
+          ip_address?: unknown | null
+          success?: boolean | null
+        }
+        Update: {
+          attempt_time?: string
+          email?: string
+          id?: number
+          ip_address?: unknown | null
+          success?: boolean | null
+        }
+        Relationships: []
+      }
       climate_zones: {
         Row: {
           code: string
@@ -2417,6 +2471,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      cleanup_old_auth_attempts: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       create_root_admin_user: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -2507,6 +2565,19 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: unknown
+      }
+      log_sensitive_operation: {
+        Args: {
+          additional_details?: Json
+          operation_type: string
+          target_id?: string
+          target_table: string
+        }
+        Returns: undefined
+      }
+      qtra_arborist_has_assessment_access: {
+        Args: { profile_user_id: string }
+        Returns: boolean
       }
       recommend_species_for_site: {
         Args: {
