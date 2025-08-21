@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useAuthV2 } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,7 @@ const roleColors = {
 };
 
 export function UserManagement() {
-  const { hasRole } = useAuthV2();
+  const { hasRole } = useAuth();
   const [users, setUsers] = useState<UserWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
