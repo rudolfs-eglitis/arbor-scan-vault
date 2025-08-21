@@ -125,11 +125,6 @@ export function TreeMap({
         center={mapConfig.center}
         zoom={mapConfig.zoom}
         style={{ height: "100%", width: "100%" }}
-        ref={(mapInstance) => {
-          if (mapInstance) {
-            mapRef.current = mapInstance;
-          }
-        }}
       >
         <MapClickHandler />
         
