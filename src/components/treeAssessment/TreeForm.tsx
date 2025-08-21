@@ -12,12 +12,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Tree } from '@/hooks/useTreeAssessment';
 import { supabase } from '@/integrations/supabase/client';
+import { TreeLocationSection } from './TreeLocationSection';
 
 const treeFormSchema = z.object({
   tree_number: z.string().optional(),
   species_id: z.string().optional(),
-  latitude: z.number().min(-90).max(90),
-  longitude: z.number().min(-180).max(180),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
   dbh_cm: z.number().min(1).max(1500).optional(),
   height_m: z.number().min(1).max(120).optional(),
   crown_spread_m: z.number().min(0).optional(),
@@ -48,8 +51,10 @@ export function TreeForm({ tree, defaultLocation, onSubmit, onCancel, loading }:
     defaultValues: {
       tree_number: tree?.tree_number || '',
       species_id: tree?.species_id || '',
-      latitude: tree?.latitude || defaultLocation?.lat || 59.3293,
-      longitude: tree?.longitude || defaultLocation?.lng || 18.0686,
+      latitude: tree?.latitude || undefined,
+      longitude: tree?.longitude || undefined,
+      lat: tree?.lat || tree?.latitude || defaultLocation?.lat || 59.3293,
+      lng: tree?.lng || tree?.longitude || defaultLocation?.lng || 18.0686,
       dbh_cm: tree?.dbh_cm || undefined,
       height_m: tree?.height_m || undefined,
       crown_spread_m: tree?.crown_spread_m || undefined,
@@ -84,7 +89,19 @@ export function TreeForm({ tree, defaultLocation, onSubmit, onCancel, loading }:
 
   const handleSubmit = async (data: TreeFormData) => {
     try {
-      await onSubmit(data);
+      if (!data.lat || !data.lng) {
+        console.error("Missing coordinates:", data);
+        return;
+      }
+      
+      // Set both coordinate systems for backward compatibility
+      const treeData = {
+        ...data,
+        latitude: data.lat,
+        longitude: data.lng,
+      };
+      
+      await onSubmit(treeData);
     } catch (error) {
       console.error('Error submitting tree form:', error);
     }
@@ -146,45 +163,17 @@ export function TreeForm({ tree, defaultLocation, onSubmit, onCancel, loading }:
             </div>
 
             {/* Location */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="latitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Latitude *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.000001"
-                        placeholder="59.3293"
-                        {...field}
-                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="longitude"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Longitude *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="number" 
-                        step="0.000001"
-                        placeholder="18.0686"
-                        {...field}
-                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Location</h3>
+              <TreeLocationSection
+                initialLat={form.watch('lat')}
+                initialLng={form.watch('lng')}
+                onLatLngChange={(lat, lng) => {
+                  form.setValue('lat', lat);
+                  form.setValue('lng', lng);
+                  form.setValue('latitude', lat);
+                  form.setValue('longitude', lng);
+                }}
               />
             </div>
 

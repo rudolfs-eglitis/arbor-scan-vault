@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,11 +18,32 @@ import { UsersTab } from './tabs/UsersTab';
 import { OCRTest } from './OCRTest';
 
 const ArborQuantApp = () => {
+  const { hasRole, loading, profile } = useAuth();
+  
+  // Initialize with 'assessment' but will be updated after auth is complete
   const [activeMainTab, setActiveMainTab] = useState('assessment');
   const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('sources');
   const [activeUserTab, setActiveUserTab] = useState('users');
-  const { hasRole } = useAuth();
   const isMobile = useIsMobile();
+
+  // Update active tab once authentication and role loading is complete
+  useEffect(() => {
+    console.log('Auth state changed, loading:', loading, 'profile:', !!profile, 'hasAdminRole:', hasRole('admin'));
+    
+    if (!loading && profile) {
+      const defaultTab = hasRole('admin') ? 'sources' : 'assessment';
+      console.log('Setting default tab to:', defaultTab);
+      setActiveMainTab(defaultTab);
+    }
+  }, [loading, profile, hasRole]);
+
+  console.log('ArborQuantApp rendering:', { 
+    loading,
+    profile: !!profile,
+    canManageKnowledgeBase: hasRole('admin'), 
+    isAdmin: hasRole('admin'),
+    activeMainTab 
+  });
 
   // Determine which tabs to show based on user roles
   const canManageKnowledgeBase = hasRole('admin');
@@ -209,9 +230,9 @@ const ArborQuantApp = () => {
               <div className="flex items-center gap-2">
                 <img src="/lovable-uploads/faca9ea3-cd95-435c-8240-f9e5fa9d2729.png" alt="ArborQuant Logo" className="h-8 w-8" />
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                    ArborQuant
-                  </h1>
+                <h1 className="text-2xl font-bold text-primary">
+                  ArborQuant
+                </h1>
                   <p className="text-sm text-muted-foreground">Tree Assessment & Knowledge Management</p>
                 </div>
               </div>
