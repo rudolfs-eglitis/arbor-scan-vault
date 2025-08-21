@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuthV2 } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,35 +8,57 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, TreePine } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, TreePine, Bug, ChevronDown, RefreshCw } from 'lucide-react';
 
 export default function Auth() {
-  const { user, signIn, signUp, loading } = useAuth();
+  const { 
+    user, 
+    signIn, 
+    signUp, 
+    signInWithGoogle, 
+    loading, 
+    debugInfo,
+    clearError 
+  } = useAuthV2();
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
   // Redirect if already authenticated
   if (user && !loading) {
     return <Navigate to="/" replace />;
   }
 
+  // Clear local error when auth error is cleared
+  useEffect(() => {
+    if (!debugInfo.lastError) {
+      setError(null);
+    }
+  }, [debugInfo.lastError]);
+
   const handleSignIn = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    clearError();
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
-    const { error } = await signIn(email, password);
+    const { error: authError } = await signIn(email, password);
     
-    if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        setError('Invalid email or password. Please try again.');
+    if (authError) {
+      if (authError.message.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      } else if (authError.message.includes('Email not confirmed')) {
+        setError('Please check your email and click the confirmation link before signing in.');
       } else {
-        setError(error.message);
+        setError(`Sign in failed: ${authError.message}`);
       }
     }
     
@@ -49,22 +70,32 @@ export default function Auth() {
     setIsLoading(true);
     setError(null);
     setSuccess(null);
+    clearError();
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
     const displayName = formData.get('displayName') as string;
 
-    const { error } = await signUp(email, password, displayName);
+    // Client-side validation
+    if (password.length < 12) {
+      setError('Password must be at least 12 characters long.');
+      setIsLoading(false);
+      return;
+    }
+
+    const { error: authError } = await signUp(email, password, displayName);
     
-    if (error) {
-      if (error.message.includes('User already registered')) {
+    if (authError) {
+      if (authError.message.includes('User already registered')) {
         setError('An account with this email already exists. Please sign in instead.');
+      } else if (authError.message.includes('Password should be at least')) {
+        setError('Password does not meet security requirements. Please use a stronger password.');
       } else {
-        setError(error.message);
+        setError(`Account creation failed: ${authError.message}`);
       }
     } else {
-      setSuccess('Account created successfully! Please check your email to confirm your account.');
+      setSuccess('Account created successfully! Please check your email to confirm your account before signing in.');
     }
     
     setIsLoading(false);
@@ -73,29 +104,42 @@ export default function Auth() {
   const handleGoogleAuth = async () => {
     setIsLoading(true);
     setError(null);
+    clearError();
     
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/`
-      }
-    });
+    const { error: authError } = await signInWithGoogle();
 
-    if (error) {
-      setError(error.message);
+    if (authError) {
+      setError(`Google sign-in failed: ${authError.message}. Please try again or use email/password.`);
       setIsLoading(false);
     }
     // If successful, the redirect will handle the rest
   };
 
-  console.log('Auth component rendering, loading:', loading, 'user:', !!user);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-success';
+      case 'none': return 'bg-muted';
+      case 'error': return 'bg-destructive';
+      default: return 'bg-warning';
+    }
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-          <p className="text-muted-foreground">Loading...</p>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          <div className="space-y-2">
+            <p className="text-muted-foreground">Loading authentication...</p>
+            <p className="text-xs text-muted-foreground">
+              Last event: {debugInfo.lastEvent}
+            </p>
+            {debugInfo.lastError && (
+              <p className="text-xs text-destructive">
+                Error: {debugInfo.lastError}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -153,7 +197,14 @@ export default function Auth() {
                         fill="#EA4335"
                       />
                     </svg>
-                    Continue with Google
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      'Continue with Google'
+                    )}
                   </Button>
                   
                   <div className="relative">
@@ -235,7 +286,14 @@ export default function Auth() {
                         fill="#EA4335"
                       />
                     </svg>
-                    Sign up with Google
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      'Sign up with Google'
+                    )}
                   </Button>
                   
                   <div className="relative">
@@ -298,16 +356,18 @@ export default function Auth() {
             </TabsContent>
           </Tabs>
 
-          {error && (
-            <div className="px-6 pb-6">
+          {(error || debugInfo.lastError) && (
+            <div className="px-6 pb-4">
               <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>
+                  {error || debugInfo.lastError}
+                </AlertDescription>
               </Alert>
             </div>
           )}
 
           {success && (
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-4">
               <Alert className="border-success bg-success/10">
                 <AlertDescription className="text-success-foreground">
                   {success}
@@ -315,6 +375,60 @@ export default function Auth() {
               </Alert>
             </div>
           )}
+
+          {/* Enhanced Debug Panel */}
+          <div className="px-6 pb-6">
+            <Collapsible open={showDebug} onOpenChange={setShowDebug}>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bug className="h-4 w-4" />
+                    <span>Debug Info</span>
+                  </div>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-3 mt-3">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge variant="outline" className={`ml-2 ${getStatusColor(debugInfo.sessionStatus)}`}>
+                      {debugInfo.sessionStatus}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Event:</span>
+                    <span className="ml-2 font-mono">{debugInfo.lastEvent}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">OAuth Attempts:</span>
+                    <span className="ml-2">{debugInfo.oauthAttempts}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Popup:</span>
+                    <span className="ml-2">{debugInfo.popupStatus || 'none'}</span>
+                  </div>
+                </div>
+                {debugInfo.lastError && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Last Error:</span>
+                    <div className="mt-1 p-2 bg-destructive/10 rounded text-destructive font-mono">
+                      {debugInfo.lastError}
+                    </div>
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.location.reload()}
+                  className="w-full"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Page
+                </Button>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         </Card>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">

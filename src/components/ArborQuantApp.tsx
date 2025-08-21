@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Upload, FileText, Clock, CheckCircle, TreePine, BookOpen, FileCheck, List, Users, AlertTriangle, Settings } from 'lucide-react';
 import { ProtectedRoute } from './ProtectedRoute';
 import { UserProfile } from './UserProfile';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthV2 } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { TreeAssessmentTab } from './tabs/TreeAssessmentTab';
 import { SourcesTab } from './tabs/SourcesTab';
@@ -18,7 +18,7 @@ import { UsersTab } from './tabs/UsersTab';
 import { OCRTest } from './OCRTest';
 
 const ArborQuantApp = () => {
-  const { hasRole, loading, profile } = useAuth();
+  const { hasRole, loading, profile } = useAuthV2();
   
   // Initialize with 'assessment' but will be updated after auth is complete
   const [activeMainTab, setActiveMainTab] = useState('assessment');

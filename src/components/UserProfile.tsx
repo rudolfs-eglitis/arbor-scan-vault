@@ -1,4 +1,4 @@
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthV2 } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -34,7 +34,7 @@ const roleColors = {
 };
 
 export function UserProfile() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut } = useAuthV2();
 
   if (!profile) return null;
 

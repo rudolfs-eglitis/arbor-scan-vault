@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
+import { useAuthV2 } from './useAuth';
 
 export interface Tree {
   id: string;
@@ -87,7 +87,7 @@ export interface TreePhoto {
 }
 
 export function useTreeAssessment() {
-  const { user } = useAuth();
+  const { user } = useAuthV2();
   const [trees, setTrees] = useState<Tree[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
