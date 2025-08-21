@@ -6,10 +6,8 @@ export interface Tree {
   id: string;
   tree_number?: string;
   species_id?: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  lat?: number | null;
-  lng?: number | null;
+  latitude: number;
+  longitude: number;
   dbh_cm?: number;
   height_m?: number;
   crown_spread_m?: number;
@@ -94,7 +92,6 @@ export function useTreeAssessment() {
 
   const fetchTrees = async () => {
     try {
-      console.log('Fetching trees...');
       const { data, error } = await supabase
         .from('trees')
         .select(`
@@ -107,22 +104,15 @@ export function useTreeAssessment() {
         `)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Supabase error fetching trees:', error);
-        throw error;
-      }
-      
-      console.log('Trees fetched successfully:', data?.length || 0, 'trees');
+      if (error) throw error;
       setTrees(data || []);
     } catch (error) {
       console.error('Error fetching trees:', error);
-      setTrees([]); // Set empty array on error
     }
   };
 
   const fetchAssessments = async () => {
     try {
-      console.log('Fetching assessments...');
       const { data, error } = await supabase
         .from('assessments')
         .select(`
@@ -138,20 +128,14 @@ export function useTreeAssessment() {
         `)
         .order('assessment_date', { ascending: false });
 
-      if (error) {
-        console.error('Supabase error fetching assessments:', error);
-        throw error;
-      }
-      
-      console.log('Assessments fetched successfully:', data?.length || 0, 'assessments');
+      if (error) throw error;
       setAssessments(data || []);
     } catch (error) {
       console.error('Error fetching assessments:', error);
-      setAssessments([]); // Set empty array on error
     }
   };
 
-  const createTree = async (treeData: Omit<Partial<Tree>, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'species'>) => {
+  const createTree = async (treeData: Omit<Partial<Tree>, 'id' | 'created_at' | 'updated_at' | 'created_by' | 'species'> & { latitude: number; longitude: number }) => {
     if (!user?.id) throw new Error('User not authenticated');
 
     const { data, error } = await supabase
@@ -359,25 +343,10 @@ export function useTreeAssessment() {
 
   useEffect(() => {
     const loadData = async () => {
-      console.log('useTreeAssessment loadData called, user:', !!user);
-      
       if (user) {
-        console.log('User exists, loading tree assessment data...');
         setLoading(true);
-        try {
-          await Promise.all([fetchTrees(), fetchAssessments()]);
-          console.log('Tree assessment data loaded successfully');
-        } catch (error) {
-          console.error('Error loading tree assessment data:', error);
-        } finally {
-          setLoading(false);
-        }
-      } else {
-        console.log('No user, setting loading to false');
-        // Important: Set loading to false even when no user to prevent infinite loading
+        await Promise.all([fetchTrees(), fetchAssessments()]);
         setLoading(false);
-        setTrees([]);
-        setAssessments([]);
       }
     };
 
