@@ -12,9 +12,11 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
   const { user, profile, loading, hasRole } = useAuth();
   const location = useLocation();
 
+  console.log('ProtectedRoute render:', { loading, user: !!user, profile: !!profile });
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -26,7 +28,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   if (requiredRole && !hasRole(requiredRole)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-foreground mb-2">Access Denied</h1>
           <p className="text-muted-foreground">
