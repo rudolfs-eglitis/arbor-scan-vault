@@ -18,10 +18,19 @@ import { UsersTab } from './tabs/UsersTab';
 import { OCRTest } from './OCRTest';
 
 const ArborQuantApp = () => {
-  const [activeMainTab, setActiveMainTab] = useState('assessment');
+  const { hasRole } = useAuth();
+  
+  // Set default tab based on user role - admins get knowledge base to help debug tree issues
+  const getDefaultTab = () => {
+    if (hasRole('admin')) {
+      return 'sources'; // Knowledge base as default for admins
+    }
+    return 'assessment'; // Tree assessment for regular users
+  };
+  
+  const [activeMainTab, setActiveMainTab] = useState(getDefaultTab());
   const [activeKnowledgeTab, setActiveKnowledgeTab] = useState('sources');
   const [activeUserTab, setActiveUserTab] = useState('users');
-  const { hasRole } = useAuth();
   const isMobile = useIsMobile();
 
   console.log('ArborQuantApp rendering, hasRole:', { 
