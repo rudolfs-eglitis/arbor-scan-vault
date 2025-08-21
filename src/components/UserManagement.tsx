@@ -101,20 +101,28 @@ export function UserManagement() {
     try {
       setUpdating(userId);
 
-      // Remove all existing roles for this user
-      const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId);
-
-      if (deleteError) throw deleteError;
-
-      // Add the new role
+      // Enhanced security: Prevent role escalation with better error handling
       const { error: insertError } = await supabase
         .from('user_roles')
-        .insert({ user_id: userId, role: newRole as 'admin' | 'qtra_arborist' | 'certified_arborist' | 'user' });
+        .upsert({ 
+          user_id: userId, 
+          role: newRole as 'admin' | 'qtra_arborist' | 'certified_arborist' | 'user' 
+        }, {
+          onConflict: 'user_id'
+        });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        if (insertError.message.includes('cannot assign admin role')) {
+          toast.error('Cannot assign admin role to self');
+        } else if (insertError.message.includes('requires admin approval')) {
+          toast.error('QTRA arborist role requires admin approval');
+        } else if (insertError.message.includes('Only admins can change')) {
+          toast.error('Only admins can change other users\' roles');
+        } else {
+          toast.error(`Failed to update role: ${insertError.message}`);
+        }
+        return;
+      }
 
       // Refresh the users list
       await fetchUsers();

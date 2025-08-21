@@ -274,11 +274,14 @@ export default function Auth() {
                       id="signup-password"
                       name="password"
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="••••••••••••"
                       required
-                      minLength={6}
+                      minLength={12}
                       disabled={isLoading}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Password must be at least 12 characters long
+                    </p>
                   </div>
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">
