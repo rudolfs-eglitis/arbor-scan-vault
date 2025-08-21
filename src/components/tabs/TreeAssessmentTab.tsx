@@ -10,6 +10,7 @@ import { TreeMap } from '@/components/treeAssessment/TreeMap';
 import { TreeForm } from '@/components/treeAssessment/TreeForm';
 import { useTreeAssessment, Tree } from '@/hooks/useTreeAssessment';
 import { useToast } from '@/hooks/use-toast';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 export function TreeAssessmentTab() {
   const { trees, assessments, loading, createTree, updateTree, deleteTree } = useTreeAssessment();
@@ -135,13 +136,25 @@ export function TreeAssessmentTab() {
             </CardTitle>
           </CardHeader>
           <CardContent className="h-[400px] lg:h-[500px]">
-            <TreeMap
-              trees={filteredTrees}
-              selectedTreeId={selectedTree?.id}
-              onTreeSelect={handleTreeSelect}
-              onLocationSelect={handleLocationSelect}
-              showAddButton={true}
-            />
+            <ErrorBoundary 
+              componentName="TreeMap"
+              fallback={
+                <div className="flex items-center justify-center h-full bg-muted/20 rounded-lg">
+                  <div className="text-center p-4">
+                    <p className="text-muted-foreground">Map temporarily unavailable</p>
+                    <p className="text-sm text-muted-foreground mt-1">Tree list below shows all trees</p>
+                  </div>
+                </div>
+              }
+            >
+              <TreeMap
+                trees={filteredTrees}
+                selectedTreeId={selectedTree?.id}
+                onTreeSelect={handleTreeSelect}
+                onLocationSelect={handleLocationSelect}
+                showAddButton={true}
+              />
+            </ErrorBoundary>
           </CardContent>
         </Card>
 

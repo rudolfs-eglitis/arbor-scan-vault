@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -27,6 +27,7 @@ export function TreeMap({
 }: TreeMapProps) {
   const [isAddingTree, setIsAddingTree] = useState(false);
   const [useAerial, setUseAerial] = useState(true);
+  const mapRef = useRef<L.Map | null>(null);
 
   // Calculate center based on trees with coordinates (handle both systems), or use default
   const treeWithCoords = trees.find(t => 
@@ -42,38 +43,58 @@ export function TreeMap({
 
   const mapZoom = treeWithCoords ? 16 : zoom;
 
-  // Leaflet marker icon
-  const icon = new L.Icon({
+  // Memoized Leaflet icons to prevent recreation
+  const icon = useMemo(() => new L.Icon({
     iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
     iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
     shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
     iconSize: [25, 41],
     iconAnchor: [12, 41],
-  });
+  }), []);
 
-  const selectedIcon = new L.Icon({
+  const selectedIcon = useMemo(() => new L.Icon({
     iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
     iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
     shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
     iconSize: [35, 55],
     iconAnchor: [17, 55],
-  });
+  }), []);
 
   // Custom hook for map click handling
   function MapClickHandler() {
-    useMapEvents({
+    const map = useMapEvents({
       click: (e: L.LeafletMouseEvent) => {
         if (!isAddingTree || !onLocationSelect) return;
         onLocationSelect(e.latlng.lat, e.latlng.lng);
         setIsAddingTree(false);
       },
     });
+    
+    useEffect(() => {
+      mapRef.current = map;
+    }, [map]);
+    
     return null;
   }
 
-  const lmTemplate = import.meta.env.VITE_LM_WMTS_URL;
-  const lmAttribution = import.meta.env.VITE_LM_ATTRIBUTION || 'Aerial © Lantmäteriet | OSM © OpenStreetMap contributors';
-  const esriWorldImagery = "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+  // Memoized map configuration to prevent rerenders
+  const mapConfig = useMemo(() => ({
+    lmTemplate: import.meta.env.VITE_LM_WMTS_URL,
+    lmAttribution: import.meta.env.VITE_LM_ATTRIBUTION || 'Aerial © Lantmäteriet | OSM © OpenStreetMap contributors',
+    esriWorldImagery: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    center: [mapCenter.lat, mapCenter.lng] as [number, number],
+    zoom: mapZoom
+  }), [mapCenter.lat, mapCenter.lng, mapZoom]);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="relative h-full bg-secondary/20 rounded-lg overflow-hidden">
@@ -100,9 +121,15 @@ export function TreeMap({
 
       {/* Leaflet Map */}
       <MapContainer
-        center={[mapCenter.lat, mapCenter.lng]}
-        zoom={mapZoom}
+        key={`map-${mapConfig.center[0]}-${mapConfig.center[1]}`}
+        center={mapConfig.center}
+        zoom={mapConfig.zoom}
         style={{ height: "100%", width: "100%" }}
+        ref={(mapInstance) => {
+          if (mapInstance) {
+            mapRef.current = mapInstance;
+          }
+        }}
       >
         <MapClickHandler />
         
@@ -115,8 +142,8 @@ export function TreeMap({
         {/* Aerial overlay */}
         {useAerial && (
           <TileLayer
-            attribution={lmAttribution}
-            url={lmTemplate || esriWorldImagery}
+            attribution={mapConfig.lmAttribution}
+            url={mapConfig.lmTemplate || mapConfig.esriWorldImagery}
             opacity={0.95}
           />
         )}
