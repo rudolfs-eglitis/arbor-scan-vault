@@ -14,6 +14,8 @@ import { useToast } from '@/hooks/use-toast';
 export function TreeAssessmentTab() {
   const { trees, assessments, loading, createTree, updateTree, deleteTree } = useTreeAssessment();
   const { toast } = useToast();
+  
+  console.log('TreeAssessmentTab rendering, loading:', loading, 'trees:', trees.length);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTree, setSelectedTree] = useState<Tree | null>(null);
   const [showTreeForm, setShowTreeForm] = useState(false);

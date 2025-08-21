@@ -24,6 +24,12 @@ const ArborQuantApp = () => {
   const { hasRole } = useAuth();
   const isMobile = useIsMobile();
 
+  console.log('ArborQuantApp rendering, hasRole:', { 
+    canManageKnowledgeBase: hasRole('admin'), 
+    isAdmin: hasRole('admin'),
+    activeMainTab 
+  });
+
   // Determine which tabs to show based on user roles
   const canManageKnowledgeBase = hasRole('admin');
   const isAdmin = hasRole('admin');
@@ -209,9 +215,9 @@ const ArborQuantApp = () => {
               <div className="flex items-center gap-2">
                 <img src="/lovable-uploads/faca9ea3-cd95-435c-8240-f9e5fa9d2729.png" alt="ArborQuant Logo" className="h-8 w-8" />
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-                    ArborQuant
-                  </h1>
+                <h1 className="text-2xl font-bold text-primary">
+                  ArborQuant
+                </h1>
                   <p className="text-sm text-muted-foreground">Tree Assessment & Knowledge Management</p>
                 </div>
               </div>
