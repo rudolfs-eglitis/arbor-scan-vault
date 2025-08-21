@@ -36,7 +36,28 @@ interface AuthContextType {
   clearError: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create context with safe default values to prevent undefined function calls
+const defaultAuthState: AuthContextType = {
+  user: null,
+  session: null,
+  profile: null,
+  loading: true,
+  debugInfo: {
+    lastEvent: 'initializing',
+    lastError: null,
+    sessionStatus: 'unknown',
+    oauthAttempts: 0,
+    popupStatus: null
+  },
+  signUp: async () => ({ error: new Error('AuthProvider not initialized') as AuthError }),
+  signIn: async () => ({ error: new Error('AuthProvider not initialized') as AuthError }),
+  signInWithGoogle: async () => ({ error: new Error('AuthProvider not initialized') as AuthError }),
+  signOut: async () => ({ error: new Error('AuthProvider not initialized') as AuthError }),
+  hasRole: () => false,
+  clearError: () => {}
+};
+
+const AuthContext = createContext<AuthContextType>(defaultAuthState);
 
 // Enhanced logging utility
 const authLog = (message: string, data?: any) => {
@@ -231,7 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchUserProfile, updateDebugInfo]);
 
-  const signUp = async (email: string, password: string, displayName?: string) => {
+  const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
     authLog('Sign up attempt', { email, hasDisplayName: !!displayName });
     updateDebugInfo({ lastEvent: 'signup_attempt' });
     
@@ -257,9 +278,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     return { error };
-  };
+  }, [updateDebugInfo]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     authLog('Sign in attempt', { email });
     updateDebugInfo({ lastEvent: 'signin_attempt' });
     
@@ -277,9 +298,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     return { error };
-  };
+  }, [updateDebugInfo]);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     authLog('Google OAuth attempt starting');
     updateDebugInfo({ 
       lastEvent: 'google_oauth_attempt',
@@ -333,9 +354,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } as AuthError 
       };
     }
-  };
+  }, [debugInfo.oauthAttempts, updateDebugInfo]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     authLog('Sign out attempt');
     updateDebugInfo({ lastEvent: 'signout_attempt' });
     
@@ -354,17 +375,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     return { error };
-  };
+  }, [updateDebugInfo]);
 
-  const hasRole = (role: UserRole['role']) => {
+  const hasRole = useCallback((role: UserRole['role']) => {
     return profile?.roles.includes(role) || false;
-  };
+  }, [profile]);
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     updateDebugInfo({ lastError: null });
-  };
+  }, [updateDebugInfo]);
 
-  const value: AuthContextType = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value = useCallback<() => AuthContextType>(() => ({
     user,
     session,
     profile,
@@ -376,10 +398,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     hasRole,
     clearError
-  };
+  }), [user, session, profile, loading, debugInfo, signUp, signIn, signInWithGoogle, signOut, hasRole, clearError]);
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={value()}>
       {children}
     </AuthContext.Provider>
   );
@@ -387,7 +409,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
