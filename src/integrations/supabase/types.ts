@@ -2488,6 +2488,10 @@ export type Database = {
         Args: { enum_type: string; new_value: string }
         Returns: undefined
       }
+      audit_admin_profile_access: {
+        Args: { target_email: string; target_profile_id: string }
+        Returns: undefined
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -2499,6 +2503,13 @@ export type Database = {
       create_root_admin_user: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_assessor_profile: {
+        Args: { profile_user_id: string }
+        Returns: {
+          display_name: string
+          id: string
+        }[]
       }
       get_trees_with_location_access: {
         Args: Record<PropertyKey, never>

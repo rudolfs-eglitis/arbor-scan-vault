@@ -39,7 +39,7 @@ const roleColors = {
 };
 
 export function UserManagement() {
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const [users, setUsers] = useState<UserWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -67,13 +67,26 @@ export function UserManagement() {
     try {
       setLoading(true);
       
-      // Fetch profiles with their roles
+      // Fetch profiles with their roles (now restricted to admins only via RLS)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
+
+      // Log admin access to user profiles for security audit
+      if (profiles && profiles.length > 0) {
+        for (const profile of profiles) {
+          if (profile.id !== user?.id) {
+            // Call audit function for each profile accessed (except own profile)
+            await supabase.rpc('audit_admin_profile_access', {
+              target_profile_id: profile.id,
+              target_email: profile.email
+            });
+          }
+        }
+      }
 
       // Fetch roles for each user
       const usersWithRoles = await Promise.all(
