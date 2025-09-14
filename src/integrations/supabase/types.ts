@@ -2694,7 +2694,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "qtra_arborist" | "certified_arborist" | "user"
+      app_role:
+        | "admin"
+        | "qtra_arborist"
+        | "certified_arborist"
+        | "user"
+        | "pro_user"
+        | "traq_arborist"
       assessment_status: "draft" | "completed" | "reviewed" | "archived"
       colonization_route:
         | "wound"
@@ -2924,7 +2930,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "qtra_arborist", "certified_arborist", "user"],
+      app_role: [
+        "admin",
+        "qtra_arborist",
+        "certified_arborist",
+        "user",
+        "pro_user",
+        "traq_arborist",
+      ],
       assessment_status: ["draft", "completed", "reviewed", "archived"],
       colonization_route: [
         "wound",
