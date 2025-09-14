@@ -132,19 +132,21 @@ async function updateChunkTranslation(
 ): Promise<void> {
   console.log(`Updating chunk ${chunkId} with translation...`);
 
-  const { error } = await supabase
-    .from('kb_chunks')
-    .update({
-      content_en: translationResult.translatedContent,
-      lang: translationResult.detectedLanguage,
-      meta: {
-        processing_phase: 'phase2_translation',
-        translation_confidence: translationResult.confidence,
-        original_language: translationResult.detectedLanguage,
-        translation_completed_at: new Date().toISOString()
-      }
-    })
-    .eq('id', chunkId);
+    const { error } = await supabase
+      .from('kb_chunks')
+      .update({
+        content: translationResult.translatedContent, // Primary English content
+        content_en: translationResult.translatedContent, // Backward compatibility
+        src_lang: translationResult.detectedLanguage, // Original source language
+        lang: 'en', // Always English for processed content
+        meta: {
+          processing_phase: 'phase2_translation',
+          translation_confidence: translationResult.confidence,
+          original_language: translationResult.detectedLanguage,
+          translation_completed_at: new Date().toISOString()
+        }
+      })
+      .eq('id', chunkId);
 
   if (error) {
     console.error('Database update error:', error);

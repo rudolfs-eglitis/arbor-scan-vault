@@ -42,7 +42,7 @@ export const AddSourceForm = ({ onSourceCreated }: AddSourceFormProps) => {
     resolver: zodResolver(sourceSchema),
     defaultValues: {
       kind: 'book',
-      lang: 'sv',
+      lang: 'en',
     },
   });
 
@@ -193,8 +193,8 @@ export const AddSourceForm = ({ onSourceCreated }: AddSourceFormProps) => {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="sv">Swedish</SelectItem>
                         <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="sv">Swedish</SelectItem>
                         <SelectItem value="de">German</SelectItem>
                         <SelectItem value="fr">French</SelectItem>
                       </SelectContent>
