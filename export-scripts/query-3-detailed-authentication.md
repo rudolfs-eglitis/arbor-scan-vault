@@ -47,15 +47,15 @@ enum AppRole {
 
 **Role Capabilities:**
 - **Admin**: User management, system configuration, all data access, role assignments
-- **QTRA Arborist**: QTRA assessment validation, knowledge base review, tree data access
+- **QTRA Arborist**: QTRA assessment validation, AI engine training, knowledge base review, tree data access
 - **TRAQ Arborist**: TRAQ assessment validation, AI engine training, knowledge base review, tree data access
 - **Certified Arborist**: Tree assessments, location data access, own data management  
 - **User**: View reference data, basic tree browsing (no location data)
 
 **Methodology-Specific Features:**
-- **QTRA Certified**: Can validate assessments using QTRA methodology
+- **QTRA Certified**: Can validate assessments using QTRA methodology, access AI training features
 - **TRAQ Certified**: Can validate assessments using TRAQ methodology, access AI training features
-- **Both Certifications**: Full access to both QTRA and TRAQ validation workflows
+- **Both Certifications**: Full access to both QTRA and TRAQ validation workflows, comprehensive AI training access
 
 ### 3. User Profile Management
 **Profile System:**
@@ -127,7 +127,7 @@ hasEitherCertification() // Check for either QTRA or TRAQ certification
 </ProtectedRoute>
 
 // Methodology-specific routing
-<ProtectedRoute requiredRole="traq_arborist">
+<ProtectedRoute requiredRoles={["qtra_arborist", "traq_arborist"]}>
   <AITrainingInterface />
 </ProtectedRoute>
 ```
