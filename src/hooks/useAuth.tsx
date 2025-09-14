@@ -3,7 +3,7 @@ import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 interface UserRole {
-  role: 'admin' | 'qtra_arborist' | 'certified_arborist' | 'user';
+  role: 'admin' | 'qtra_arborist' | 'traq_arborist' | 'certified_arborist' | 'pro_user' | 'user';
 }
 
 interface UserProfile {

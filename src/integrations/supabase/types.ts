@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_methodologies: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          version: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id: string
+          is_active?: boolean
+          name: string
+          version?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       assessment_outcomes: {
         Row: {
           actual_outcome: string | null
@@ -82,6 +109,60 @@ export type Database = {
           },
         ]
       }
+      assessment_validations: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          credits_earned: number | null
+          id: string
+          methodology_id: string
+          updated_at: string
+          validated_at: string | null
+          validation_notes: string | null
+          validation_status: string
+          validator_id: string
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          credits_earned?: number | null
+          id?: string
+          methodology_id: string
+          updated_at?: string
+          validated_at?: string | null
+          validation_notes?: string | null
+          validation_status?: string
+          validator_id: string
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          credits_earned?: number | null
+          id?: string
+          methodology_id?: string
+          updated_at?: string
+          validated_at?: string | null
+          validation_notes?: string | null
+          validation_status?: string
+          validator_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_validations_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assessment_validations_methodology_id_fkey"
+            columns: ["methodology_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_methodologies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assessment_views: {
         Row: {
           configuration: Json | null
@@ -121,6 +202,7 @@ export type Database = {
           created_at: string | null
           follow_up_date: string | null
           id: string
+          methodology_id: string | null
           notes: string | null
           overall_condition: string | null
           probability_of_failure:
@@ -141,6 +223,7 @@ export type Database = {
           created_at?: string | null
           follow_up_date?: string | null
           id?: string
+          methodology_id?: string | null
           notes?: string | null
           overall_condition?: string | null
           probability_of_failure?:
@@ -161,6 +244,7 @@ export type Database = {
           created_at?: string | null
           follow_up_date?: string | null
           id?: string
+          methodology_id?: string | null
           notes?: string | null
           overall_condition?: string | null
           probability_of_failure?:
@@ -174,6 +258,13 @@ export type Database = {
           weather_conditions?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "assessments_methodology_id_fkey"
+            columns: ["methodology_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_methodologies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "assessments_tree_id_fkey"
             columns: ["tree_id"]
@@ -283,6 +374,44 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      credit_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          related_assessment_id: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          id?: string
+          related_assessment_id?: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          related_assessment_id?: string | null
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_transactions_related_assessment_id_fkey"
+            columns: ["related_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       defects: {
         Row: {
@@ -2373,6 +2502,36 @@ export type Database = {
         Update: {
           id?: string
           label?: string
+        }
+        Relationships: []
+      }
+      user_credits: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          lifetime_earned: number
+          lifetime_spent: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          lifetime_earned?: number
+          lifetime_spent?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          lifetime_earned?: number
+          lifetime_spent?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

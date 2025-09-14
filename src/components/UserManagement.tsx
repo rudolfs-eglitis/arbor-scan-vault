@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Crown, Shield, User, CheckCircle } from 'lucide-react';
+import { Loader2, Crown, Shield, User, CheckCircle, TreePine, Award } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface UserWithProfile {
@@ -20,21 +20,27 @@ interface UserWithProfile {
 const roleIcons = {
   admin: Crown,
   qtra_arborist: Shield,
+  traq_arborist: Award,
   certified_arborist: CheckCircle,
+  pro_user: TreePine,
   user: User,
 };
 
 const roleLabels = {
   admin: 'Admin',
   qtra_arborist: 'QTRA Arborist',
+  traq_arborist: 'TRAQ Arborist',
   certified_arborist: 'Certified Arborist',
+  pro_user: 'Pro User',
   user: 'User',
 };
 
 const roleColors = {
   admin: 'bg-gradient-to-r from-amber-500 to-orange-500',
   qtra_arborist: 'bg-gradient-to-r from-emerald-500 to-teal-500',
+  traq_arborist: 'bg-gradient-to-r from-teal-500 to-cyan-500',
   certified_arborist: 'bg-gradient-to-r from-blue-500 to-indigo-500',
+  pro_user: 'bg-gradient-to-r from-indigo-500 to-blue-500',
   user: 'bg-gradient-to-r from-gray-500 to-slate-500',
 };
 
@@ -119,7 +125,7 @@ export function UserManagement() {
         .from('user_roles')
         .upsert({ 
           user_id: userId, 
-          role: newRole as 'admin' | 'qtra_arborist' | 'certified_arborist' | 'user' 
+          role: newRole as 'admin' | 'qtra_arborist' | 'traq_arborist' | 'certified_arborist' | 'pro_user' | 'user' 
         }, {
           onConflict: 'user_id'
         });
@@ -204,8 +210,10 @@ export function UserManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="pro_user">Pro User</SelectItem>
                       <SelectItem value="certified_arborist">Certified Arborist</SelectItem>
                       <SelectItem value="qtra_arborist">QTRA Arborist</SelectItem>
+                      <SelectItem value="traq_arborist">TRAQ Arborist</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>

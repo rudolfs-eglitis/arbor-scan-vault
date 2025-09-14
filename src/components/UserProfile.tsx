@@ -10,26 +10,32 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, LogOut, Crown, Shield, TreePine } from 'lucide-react';
+import { User, LogOut, Crown, Shield, TreePine, Award } from 'lucide-react';
 
 const roleIcons = {
   admin: Crown,
   qtra_arborist: Shield,
+  traq_arborist: Award,
   certified_arborist: TreePine,
+  pro_user: TreePine,
   user: User,
 };
 
 const roleLabels = {
   admin: 'Admin',
   qtra_arborist: 'QTRA Arborist',
+  traq_arborist: 'TRAQ Arborist',
   certified_arborist: 'Certified Arborist',
+  pro_user: 'Pro User',
   user: 'User',
 };
 
 const roleColors = {
   admin: 'bg-gradient-to-r from-amber-500 to-orange-500',
   qtra_arborist: 'bg-gradient-to-r from-emerald-500 to-teal-500',
+  traq_arborist: 'bg-gradient-to-r from-teal-500 to-cyan-500',
   certified_arborist: 'bg-gradient-to-r from-blue-500 to-indigo-500',
+  pro_user: 'bg-gradient-to-r from-indigo-500 to-blue-500',
   user: 'bg-gradient-to-r from-slate-500 to-gray-500',
 };
 

@@ -15,6 +15,7 @@ import UploadTab from './tabs/UploadTab';
 import QueueTab from './tabs/QueueTab';
 import ReviewTab from './tabs/ReviewTab';
 import { UsersTab } from './tabs/UsersTab';
+import { CreditsTab } from './tabs/CreditsTab';
 import { OCRTest } from './OCRTest';
 
 const ArborQuantApp = () => {
@@ -35,16 +36,24 @@ const ArborQuantApp = () => {
 
   // Determine which tabs to show based on user roles
   const isAdmin = hasRole('admin');
+  const hasCreditsAccess = hasRole('pro_user') || hasRole('qtra_arborist') || hasRole('traq_arborist') || hasRole('admin');
 
   const renderMobileLayout = () => (
     <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full" defaultValue="assessment">
-      {/* Main Navigation - Always show all 3 tabs, but disable admin ones for non-admins */}
-      <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
+      {/* Main Navigation */}
+      <TabsList className={`grid w-full ${isAdmin && hasCreditsAccess ? 'grid-cols-4' : hasCreditsAccess ? 'grid-cols-2' : isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
         <TabsTrigger value="assessment" className="flex items-center gap-2">
           <TreePine className="h-4 w-4" />
           <span className="hidden sm:inline">Tree Assessment</span>
           <span className="sm:hidden">Trees</span>
         </TabsTrigger>
+        {hasCreditsAccess && (
+          <TabsTrigger value="credits" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline">Credits</span>
+            <span className="sm:hidden">Credits</span>
+          </TabsTrigger>
+        )}
         {isAdmin && (
           <TabsTrigger value="knowledge" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
@@ -65,6 +74,13 @@ const ArborQuantApp = () => {
       <TabsContent value="assessment" className="mt-6">
         <TreeAssessmentTab />
       </TabsContent>
+
+      {/* Credits Tab */}
+      {hasCreditsAccess && (
+        <TabsContent value="credits" className="mt-6">
+          <CreditsTab />
+        </TabsContent>
+      )}
 
       {/* Knowledge Base Tab with Sub-tabs */}
       {isAdmin && (
@@ -116,11 +132,17 @@ const ArborQuantApp = () => {
 
   const renderDesktopLayout = () => (
     <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full" defaultValue="assessment">
-      <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
+      <TabsList className={`grid w-full ${isAdmin && hasCreditsAccess ? 'grid-cols-4' : hasCreditsAccess ? 'grid-cols-2' : isAdmin ? 'grid-cols-3' : 'grid-cols-1'}`}>
         <TabsTrigger value="assessment" className="flex items-center gap-2">
           <TreePine className="h-4 w-4" />
           Tree Assessment
         </TabsTrigger>
+        {hasCreditsAccess && (
+          <TabsTrigger value="credits" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Credits
+          </TabsTrigger>
+        )}
         {isAdmin && (
           <TabsTrigger value="knowledge" className="flex items-center gap-2">
             <BookOpen className="h-4 w-4" />
@@ -138,6 +160,12 @@ const ArborQuantApp = () => {
       <TabsContent value="assessment" className="mt-6">
         <TreeAssessmentTab />
       </TabsContent>
+
+      {hasCreditsAccess && (
+        <TabsContent value="credits" className="mt-6">
+          <CreditsTab />
+        </TabsContent>
+      )}
 
       {isAdmin && (
         <TabsContent value="knowledge" className="mt-6">
