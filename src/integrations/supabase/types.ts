@@ -2682,6 +2682,14 @@ export type Database = {
       }
     }
     Views: {
+      handoff_summary: {
+        Row: {
+          category: string | null
+          count: number | null
+          description: string | null
+        }
+        Relationships: []
+      }
       v_defect_species_mitigations: {
         Row: {
           action: string | null
