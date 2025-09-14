@@ -31,18 +31,31 @@ Use the GitHub repository `https://github.com/rudolfs-eglitis/arbor-scan-vault` 
 **Role Hierarchy (from most to least privileged):**
 ```typescript
 enum AppRole {
-  admin = 'admin',                    // Full system access, user management
-  qtra_arborist = 'qtra_arborist',   // QTRA certified, can validate assessments  
+  admin = 'admin',                      // Full system access, user management
+  qtra_arborist = 'qtra_arborist',     // QTRA certified, validates QTRA assessments  
+  traq_arborist = 'traq_arborist',     // TRAQ certified, validates TRAQ assessments, AI training
   certified_arborist = 'certified_arborist', // Can perform assessments
-  user = 'user'                       // Basic access, view-only for most features
+  user = 'user'                         // Basic access, view-only for most features
 }
 ```
 
+**Multi-Certification Support:**
+- Users can hold multiple certifications simultaneously (e.g., both QTRA and TRAQ)
+- Role checking functions support "any of" logic for equivalent privilege levels
+- UI displays all user certifications with appropriate badges
+- Assessment validation shows methodology-specific options based on user certifications
+
 **Role Capabilities:**
-- **Admin**: User management, system configuration, all data access
-- **QTRA Arborist**: Assessment validation, knowledge base review, tree data access
+- **Admin**: User management, system configuration, all data access, role assignments
+- **QTRA Arborist**: QTRA assessment validation, knowledge base review, tree data access
+- **TRAQ Arborist**: TRAQ assessment validation, AI engine training, knowledge base review, tree data access
 - **Certified Arborist**: Tree assessments, location data access, own data management  
 - **User**: View reference data, basic tree browsing (no location data)
+
+**Methodology-Specific Features:**
+- **QTRA Certified**: Can validate assessments using QTRA methodology
+- **TRAQ Certified**: Can validate assessments using TRAQ methodology, access AI training features
+- **Both Certifications**: Full access to both QTRA and TRAQ validation workflows
 
 ### 3. User Profile Management
 **Profile System:**
@@ -77,9 +90,15 @@ enum AppRole {
 ```typescript
 // Custom hooks to implement
 useAuth() // Current user, session, auth state
-useRoles() // User roles and permissions checking
+useRoles() // User roles and permissions checking with multi-certification support
 useProfile() // User profile data and updates
 useUserManagement() // Admin-only user management functions
+
+// Enhanced role checking patterns
+hasRole(role) // Check for specific role
+hasAnyRole([roles]) // Check for any of multiple roles
+hasCertification('qtra' | 'traq') // Check for specific methodology certification
+hasEitherCertification() // Check for either QTRA or TRAQ certification
 ```
 
 **Auth Context Provider:**
@@ -97,8 +116,19 @@ useUserManagement() // Admin-only user management functions
 
 **Implementation Pattern:**
 ```typescript
+// Single role requirement
 <ProtectedRoute requiredRole="qtra_arborist">
+  <QTRAValidationPage />
+</ProtectedRoute>
+
+// Multiple role options (either certification allows access)
+<ProtectedRoute requiredRoles={["qtra_arborist", "traq_arborist"]}>
   <AssessmentValidationPage />
+</ProtectedRoute>
+
+// Methodology-specific routing
+<ProtectedRoute requiredRole="traq_arborist">
+  <AITrainingInterface />
 </ProtectedRoute>
 ```
 
@@ -151,8 +181,10 @@ The connected Supabase database already includes:
 **Role Transition Testing:**
 - Admin role assignment works correctly
 - Role removal removes access appropriately
-- Multiple role assignments handled properly
+- Multiple role assignments handled properly (QTRA + TRAQ combinations)
 - Role escalation prevention works
+- Multi-certification workflows function correctly
+- Methodology-specific features accessible to appropriate users
 
 ### 3. Security Testing
 **Session Security:**
@@ -198,8 +230,8 @@ The connected Supabase database already includes:
 
 ### 3. Authentication Hooks
 - `useAuth()` - Auth state and actions
-- `useRoles()` - Role checking utilities
-- `useProfile()` - Profile data management
+- `useRoles()` - Multi-certification role checking utilities
+- `useProfile()` - Profile data management with certification display
 
 ### 4. Security Implementation
 - RLS policy utilization in frontend
