@@ -2682,14 +2682,6 @@ export type Database = {
       }
     }
     Views: {
-      handoff_summary: {
-        Row: {
-          category: string | null
-          count: number | null
-          description: string | null
-        }
-        Relationships: []
-      }
       v_defect_species_mitigations: {
         Row: {
           action: string | null
@@ -2776,6 +2768,14 @@ export type Database = {
         Returns: {
           display_name: string
           id: string
+        }[]
+      }
+      get_handoff_summary: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          category: string
+          count: number
+          description: string
         }[]
       }
       get_trees_with_location_access: {
