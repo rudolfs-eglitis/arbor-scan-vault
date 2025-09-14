@@ -81,7 +81,7 @@ export const useCredits = () => {
     }
   };
 
-  const spendCredits = async (amount: number, description: string, assessmentId?: string) => {
+  const spendCredits = async (amount: number, description: string, assessmentId?: string, assessmentType?: string) => {
     if (!user || !credits || credits.balance < amount) {
       toast.error('Insufficient credits');
       return false;
@@ -95,7 +95,8 @@ export const useCredits = () => {
           amount: -amount,
           transaction_type: 'spent',
           description,
-          related_assessment_id: assessmentId
+          related_assessment_id: assessmentId,
+          assessment_type: assessmentType as any
         });
 
       if (error) throw error;

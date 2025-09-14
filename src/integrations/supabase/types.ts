@@ -197,6 +197,7 @@ export type Database = {
         Row: {
           assessment_date: string
           assessment_method: string | null
+          assessment_type: Database["public"]["Enums"]["assessment_type"] | null
           assessor_id: string | null
           consequence_rating: Database["public"]["Enums"]["risk_rating"] | null
           created_at: string | null
@@ -213,11 +214,16 @@ export type Database = {
           status: Database["public"]["Enums"]["assessment_status"] | null
           tree_id: string | null
           updated_at: string | null
+          validation_requested: boolean | null
+          validation_type: string | null
           weather_conditions: string | null
         }
         Insert: {
           assessment_date?: string
           assessment_method?: string | null
+          assessment_type?:
+            | Database["public"]["Enums"]["assessment_type"]
+            | null
           assessor_id?: string | null
           consequence_rating?: Database["public"]["Enums"]["risk_rating"] | null
           created_at?: string | null
@@ -234,11 +240,16 @@ export type Database = {
           status?: Database["public"]["Enums"]["assessment_status"] | null
           tree_id?: string | null
           updated_at?: string | null
+          validation_requested?: boolean | null
+          validation_type?: string | null
           weather_conditions?: string | null
         }
         Update: {
           assessment_date?: string
           assessment_method?: string | null
+          assessment_type?:
+            | Database["public"]["Enums"]["assessment_type"]
+            | null
           assessor_id?: string | null
           consequence_rating?: Database["public"]["Enums"]["risk_rating"] | null
           created_at?: string | null
@@ -255,6 +266,8 @@ export type Database = {
           status?: Database["public"]["Enums"]["assessment_status"] | null
           tree_id?: string | null
           updated_at?: string | null
+          validation_requested?: boolean | null
+          validation_type?: string | null
           weather_conditions?: string | null
         }
         Relationships: [
@@ -375,9 +388,37 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_packages: {
+        Row: {
+          created_at: string | null
+          credits: number
+          id: string
+          is_active: boolean | null
+          name: string
+          price_usd: number
+        }
+        Insert: {
+          created_at?: string | null
+          credits: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_usd: number
+        }
+        Update: {
+          created_at?: string | null
+          credits?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_usd?: number
+        }
+        Relationships: []
+      }
       credit_transactions: {
         Row: {
           amount: number
+          assessment_type: Database["public"]["Enums"]["assessment_type"] | null
           created_at: string
           description: string
           id: string
@@ -387,6 +428,9 @@ export type Database = {
         }
         Insert: {
           amount: number
+          assessment_type?:
+            | Database["public"]["Enums"]["assessment_type"]
+            | null
           created_at?: string
           description: string
           id?: string
@@ -396,6 +440,9 @@ export type Database = {
         }
         Update: {
           amount?: number
+          assessment_type?:
+            | Database["public"]["Enums"]["assessment_type"]
+            | null
           created_at?: string
           description?: string
           id?: string
@@ -445,6 +492,59 @@ export type Database = {
           qtra_guidance?: Json | null
         }
         Relationships: []
+      }
+      expert_reviews: {
+        Row: {
+          assessment_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          custom_price_usd: number | null
+          expert_notes: string | null
+          id: string
+          location_description: string
+          preferred_expert_id: string | null
+          requester_id: string
+          scheduled_date: string | null
+          status: string | null
+          urgency_level: string | null
+        }
+        Insert: {
+          assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          custom_price_usd?: number | null
+          expert_notes?: string | null
+          id?: string
+          location_description: string
+          preferred_expert_id?: string | null
+          requester_id: string
+          scheduled_date?: string | null
+          status?: string | null
+          urgency_level?: string | null
+        }
+        Update: {
+          assessment_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          custom_price_usd?: number | null
+          expert_notes?: string | null
+          id?: string
+          location_description?: string
+          preferred_expert_id?: string | null
+          requester_id?: string
+          scheduled_date?: string | null
+          status?: string | null
+          urgency_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_reviews_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       features: {
         Row: {
@@ -2861,6 +2961,13 @@ export type Database = {
         | "pro_user"
         | "traq_arborist"
       assessment_status: "draft" | "completed" | "reviewed" | "archived"
+      assessment_type:
+        | "basic_ai"
+        | "detailed_ai"
+        | "qtra_validation"
+        | "traq_validation"
+        | "dual_validation"
+        | "expert_manual"
       colonization_route:
         | "wound"
         | "root_contact"
@@ -3098,6 +3205,14 @@ export const Constants = {
         "traq_arborist",
       ],
       assessment_status: ["draft", "completed", "reviewed", "archived"],
+      assessment_type: [
+        "basic_ai",
+        "detailed_ai",
+        "qtra_validation",
+        "traq_validation",
+        "dual_validation",
+        "expert_manual",
+      ],
       colonization_route: [
         "wound",
         "root_contact",
